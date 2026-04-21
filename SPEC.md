@@ -79,7 +79,7 @@ Produce every asset the campaign needs.
 ### Phase 4 — Execute
 Actually send the campaign.
 - **Email distribution** — sends pitches/follow-ups to contacts with tracking (opens, clicks, replies).
-- **Wire distribution** — optionally submit the press release to a wire partner (PR Newswire / Business Wire / EIN / GlobeNewswire) via API or manual export.
+- **Wire distribution (v1: manual export only)** — PitchFlare generates a formatted press release + distribution kit (headline, dateline, body, boilerplate, contact block, media assets in a zip) that the user uploads to their chosen wire service (PR Newswire / Business Wire / EIN / GlobeNewswire). Partner API integrations are deferred to v1.1 based on which services actual users pick.
 - **Social publishing** — scheduled publishing or export to user's scheduling tool.
 - **Sequence engine** — drips follow-ups based on open/reply state; pauses sequence on reply.
 
@@ -118,12 +118,12 @@ Prove the work.
 |---|---|---|
 | Background jobs | **Inngest** | Durable execution, retries, fan-out — essential for send sequences, monitoring polls, report generation. First-class Vercel DX. |
 | Transactional email (app) | **Resend** + React Email | For app emails (invites, digests, notifications). |
-| Campaign email sending | *(See Open Question Q1)* | Either user-OAuth'd Gmail/Outlook or shared domain via Resend — big architectural fork. |
+| Campaign email sending | **User OAuth (Gmail + Outlook) primary, Resend fallback** | Each user connects their own inbox via OAuth; pitches send from their real address so journalists see a human sender and replies sync into PitchFlare. Resend is used as a fallback when no inbox is connected (e.g. scheduled follow-ups after a user revokes access) and for automated sequence touches the user opts to send from a verified brand domain. |
 | File storage | **Vercel Blob** | Simplest for logos, clip PDFs, brand assets; swap to S3 later if needed. |
 | Billing | **Stripe** (Billing + Customer Portal) | Stripe Checkout for subscribe; Portal for plan changes/cancellation. |
 | Error tracking | **Sentry** | Standard. |
 | Product analytics | **PostHog** | Self-hostable later; session replay helpful in beta. |
-| News monitoring (v1) | **GDELT + Google News RSS + Bing News API** | Free/cheap stack to ship; upgrade to NewsWhip/Meltwater later. |
+| News monitoring (v1) | **GDELT + Google News RSS + Bing News API** | Free/low-cost stack to ship. Trade-off: no paywalled outlets and limited social coverage. Data-source layer abstracted behind a `MonitoringProvider` interface so a paid partner (NewsWhip/Meltwater) can be swapped in per-plan later without touching downstream Mention/CoverageClip logic. |
 | Podcast monitoring | **Podchaser** (BYO-account) | Aligns with BYO partner model. |
 | Social monitoring | **SparkToro + X/LinkedIn public APIs** | BYO-account for SparkToro. |
 | Contact enrichment | **Hunter.io, Apollo** (BYO-account) | Aligns with BYO partner model. |
@@ -188,12 +188,13 @@ Contacts and outlets are *shared across the platform* (a global directory), but 
 - **Approval** — `entity_type`, `entity_id`, `requested_by`, `approver_id`, `status`
 
 ### Execution
-- **EmailThread** — `brand_id`, external thread id (from Gmail/Outlook or Resend)
-- **EmailSend** — `pitch_id` or `followup_id`, `contact_id`, `thread_id`, `message_id`, sent_at
+- **MailboxConnection** — `user_id`, provider (GMAIL/OUTLOOK), oauth tokens (encrypted), scopes, sync_cursor, status
+- **EmailThread** — `brand_id`, provider, external_thread_id (from Gmail/Outlook or Resend inbound-parse)
+- **EmailSend** — `pitch_id` or `followup_id`, `contact_id`, `thread_id`, `message_id`, `send_path` (OAUTH_MAILBOX/RESEND), sent_at
 - **EmailEvent** — `email_send_id`, type (DELIVERED/OPENED/CLICKED/REPLIED/BOUNCED/UNSUBSCRIBED), occurred_at, metadata
 - **Sequence** — `campaign_id`, name, rules
 - **SequenceStep** — `sequence_id`, step_n, delay_days, content_ref
-- **WireDistribution** — `press_release_id`, partner, external_id, status, submitted_at, live_url
+- **WireExport** — `press_release_id`, kit_storage_url, generated_at, target_partner_hint (user's chosen wire, for v1.1 migration to real integrations)
 
 ### Analysis
 - **MonitoringQuery** — `brand_id`, `campaign_id?`, keywords[], sources[], competitors[]
