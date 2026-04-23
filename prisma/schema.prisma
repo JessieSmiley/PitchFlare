@@ -250,7 +250,7 @@ model Account {
   brands        Brand[]
   subscription  Subscription?
   integrations  Integration[]
-  aiUsageLogs   AIUsageLog[]
+  aiUsageLogs   AiUsageLog[]
   auditLogs     AuditLog[]
 
   @@index([plan])
@@ -359,7 +359,7 @@ model Brand {
   reportSchedules ReportSchedule[]
   contactInteractions ContactInteraction[]
   emailThreads    EmailThread[]
-  aiUsageLogs     AIUsageLog[]
+  aiUsageLogs     AiUsageLog[]
 
   @@unique([accountId, slug])
   @@index([accountId])
@@ -1238,7 +1238,7 @@ model AuditLog {
   @@index([accountId, createdAt])
 }
 
-model AIUsageLog {
+model AiUsageLog {
   id           String   @id @default(cuid())
   accountId    String
   brandId      String?
