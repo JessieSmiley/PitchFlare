@@ -1,17 +1,25 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
+import { getTenant, listAccessibleBrands } from "@/lib/auth/tenant";
+import { BrandSwitcher } from "@/components/brand-switcher";
 
-/**
- * Dashboard shell placeholder. Replaced in Chunk C with:
- *   - real brand switcher (reads Clerk org publicMetadata)
- *   - six-phase sidebar wired to active route
- *   - search + notifications + quick-actions
- */
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const tenant = await getTenant();
+
+  // No account yet → Clerk org not picked, webhook hasn't run, or brand-new
+  // sign-up. Send them through onboarding.
+  if (!tenant) redirect("/onboarding");
+
+  // Signed-in and provisioned but no brand yet → force brand creation first.
+  if (!tenant.brand) redirect("/onboarding/brand");
+
+  const brands = await listAccessibleBrands(tenant.account.id, tenant.user.id);
+
   return (
     <div className="flex min-h-screen bg-background">
       <aside className="w-[220px] shrink-0 border-r border-border bg-white">
@@ -44,11 +52,41 @@ export default function DashboardLayout({
           <NavSub href="/dashboard/report/roi" label="ROI" />
           <NavSub href="/dashboard/report/status" label="Status Reports" />
         </nav>
+
+        <div className="mt-auto border-t border-border px-2 py-3">
+          <Link
+            href="/dashboard/settings/billing"
+            className="block rounded-md px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-brand-navy"
+          >
+            Billing
+          </Link>
+          <Link
+            href="/dashboard/settings/integrations"
+            className="block rounded-md px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-brand-navy"
+          >
+            Integrations
+          </Link>
+        </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-[52px] items-center justify-between border-b border-border bg-white px-6">
-          <div className="text-sm text-muted-foreground">Brand switcher (Chunk C)</div>
+          <BrandSwitcher
+            current={
+              tenant.brand
+                ? {
+                    id: tenant.brand.id,
+                    name: tenant.brand.name,
+                    slug: tenant.brand.slug,
+                  }
+                : null
+            }
+            options={brands.map((b) => ({
+              id: b.id,
+              name: b.name,
+              slug: b.slug,
+            }))}
+          />
           <div className="flex items-center gap-3">
             <Link
               href="/dashboard/draft/pitches"

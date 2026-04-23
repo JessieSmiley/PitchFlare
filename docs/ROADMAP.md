@@ -8,7 +8,7 @@ branches for the latest state.
 | --- | --- | --- |
 | **A** | Next.js 15 + Prisma + Clerk scaffold, dashboard shell, route stubs, README | shipped |
 | **B** | `prisma/schema.prisma` (full SPEC.md data model) + seed script | shipped |
-| **C** | Clerk middleware wiring, `AccountMembership` + `BrandMembership` provisioning, brand switcher, `assertCanCreateBrand` / `assertCanInviteUser` tier gates, Clerk webhook | pending |
+| **C** | Clerk middleware wiring, `AccountMembership` + `BrandMembership` provisioning, brand switcher, `assertCanCreateBrand` / `assertCanInviteUser` tier gates, Clerk webhook | shipped |
 | **D** | Level-Set screens (brand profile, voice, boilerplate, pillars, spokespeople, prior examples), voice-from-website AI, `getBrandContextForAI(brandId)` helper with prompt caching | pending |
 | **E** | Ideation Station (streaming Claude, angle cards, remix, chat), Target Compilation (contact table, profile drawer, match-scoring, "+ Add contact", "Import from URL" scraper) | pending |
 | **F** | Pitch composer (single + batch + A/B variants), press releases, social posts, follow-ups. Execute/email: mailbox OAuth (Gmail/Outlook), Resend fallback, send queue, throttle, open/click tracking endpoints, follow-up scheduler | pending |
