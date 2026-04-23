@@ -1,0 +1,1259 @@
+// PitchFlare Prisma schema
+// Source of truth: SPEC.md §5. Tenancy = Account → (Brand | User).
+// All brand-scoped records carry `brandId` so row-level filtering can be
+// enforced in a single `where` clause at the query layer.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// =============================================================================
+// Enums
+// =============================================================================
+
+enum Plan {
+  SOLO
+  BOUTIQUE
+  AGENCY
+}
+
+enum AccountRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  INCOMPLETE
+  INCOMPLETE_EXPIRED
+  UNPAID
+  PAUSED
+}
+
+enum IntegrationPartner {
+  HUNTER
+  APOLLO
+  PODCHASER
+  SPARKTORO
+  WIRE
+  RESEND_DOMAIN
+}
+
+enum IntegrationStatus {
+  CONNECTED
+  DISCONNECTED
+  ERROR
+}
+
+enum BrandAssetKind {
+  LOGO
+  HEADSHOT
+  IMAGE
+  DOC
+}
+
+enum CampaignPhase {
+  LEVEL_SET
+  STRATEGIZE
+  DRAFT
+  EXECUTE
+  ANALYZE
+  REPORT
+}
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ARCHIVED
+}
+
+enum AngleSource {
+  IDEATION_STATION
+  MANUAL
+}
+
+enum ContactKind {
+  JOURNALIST
+  PODCASTER
+  INFLUENCER
+  ANALYST
+  OUTLET
+}
+
+enum OutletKind {
+  PUBLICATION
+  PODCAST
+  YOUTUBE
+  NEWSLETTER
+  SOCIAL
+  TV
+  BLOG
+}
+
+enum OutletTier {
+  TIER_1
+  TIER_2
+  TIER_3
+  TRADE
+  LOCAL
+}
+
+enum ContactFieldSource {
+  AUTO_SCRAPED
+  USER_ADDED
+  DATA_PARTNER
+}
+
+enum RecentWorkSource {
+  RSS
+  MANUAL
+  SCRAPE
+}
+
+enum PitchStatus {
+  DRAFT
+  APPROVED
+  SCHEDULED
+  SENT
+  OPENED
+  REPLIED
+  PLACED
+  NO_RESPONSE
+}
+
+enum PressReleaseStatus {
+  DRAFT
+  APPROVED
+  SCHEDULED
+  PUBLISHED
+}
+
+enum SocialPlatform {
+  X
+  LINKEDIN
+  INSTAGRAM
+  THREADS
+  FACEBOOK
+  TIKTOK
+}
+
+enum SocialPostStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+}
+
+enum MailboxProvider {
+  GMAIL
+  OUTLOOK
+}
+
+enum MailboxStatus {
+  ACTIVE
+  REVOKED
+  ERROR
+}
+
+enum EmailSendPath {
+  OAUTH_MAILBOX
+  RESEND
+}
+
+enum EmailEventType {
+  DELIVERED
+  OPENED
+  CLICKED
+  REPLIED
+  BOUNCED
+  UNSUBSCRIBED
+  COMPLAINED
+}
+
+enum MonitoringSource {
+  GOOGLE_NEWS_RSS
+  GDELT
+  BING_NEWS
+  PODCHASER
+  SPARKTORO
+  MANUAL
+}
+
+enum SentimentLabel {
+  POSITIVE
+  NEUTRAL
+  NEGATIVE
+}
+
+enum ReportType {
+  COVERAGE
+  ROI
+  SOV
+  STATUS_BRIEF
+  MEDIA_BRIEF
+  TALKING_POINTS
+}
+
+enum ReportCadence {
+  WEEKLY
+  MONTHLY
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ContentEntityType {
+  PITCH
+  PRESS_RELEASE
+  SOCIAL_POST
+  FOLLOW_UP
+  PITCH_STRATEGY
+}
+
+enum ContactInteractionKind {
+  PITCH_SENT
+  REPLY_RECEIVED
+  COVERAGE_AUTHORED
+  NOTE
+}
+
+// =============================================================================
+// Identity & tenancy
+// =============================================================================
+
+model Account {
+  id              String   @id @default(cuid())
+  clerkOrgId      String   @unique
+  name            String
+  plan            Plan     @default(SOLO)
+  seatLimit       Int      @default(1)
+  brandLimit      Int      @default(1)
+  stripeCustomerId String? @unique
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  memberships   AccountMembership[]
+  brands        Brand[]
+  subscription  Subscription?
+  integrations  Integration[]
+  aiUsageLogs   AIUsageLog[]
+  auditLogs     AuditLog[]
+
+  @@index([plan])
+}
+
+model User {
+  id          String   @id @default(cuid())
+  clerkUserId String   @unique
+  email       String   @unique
+  name        String?
+  imageUrl    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  accountMemberships AccountMembership[]
+  brandMemberships   BrandMembership[]
+  mailboxes          MailboxConnection[]
+  auditLogs          AuditLog[]
+  approvalsRequested Approval[]          @relation("ApprovalRequester")
+  approvalsReviewed  Approval[]          @relation("ApprovalApprover")
+}
+
+model AccountMembership {
+  id        String      @id @default(cuid())
+  accountId String
+  userId    String
+  role      AccountRole @default(MEMBER)
+  createdAt DateTime    @default(now())
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, userId])
+  @@index([userId])
+}
+
+model Subscription {
+  id                   String             @id @default(cuid())
+  accountId            String             @unique
+  stripeSubscriptionId String             @unique
+  stripePriceId        String
+  status               SubscriptionStatus
+  currentPeriodStart   DateTime
+  currentPeriodEnd     DateTime
+  cancelAtPeriodEnd    Boolean            @default(false)
+  canceledAt           DateTime?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+}
+
+/// Data-partner credentials live here. `encryptedCredentials` is AES-256-GCM
+/// ciphertext (see lib/crypto.ts in Chunk I). Never select this column into
+/// client-visible DTOs.
+model Integration {
+  id                   String             @id @default(cuid())
+  accountId            String
+  partner              IntegrationPartner
+  label                String?
+  encryptedCredentials String
+  status               IntegrationStatus  @default(CONNECTED)
+  lastSyncAt           DateTime?
+  lastError            String?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, partner, label])
+  @@index([partner])
+}
+
+// =============================================================================
+// Brand workspace
+// =============================================================================
+
+model Brand {
+  id          String   @id @default(cuid())
+  accountId   String
+  name        String
+  slug        String
+  description String?
+  website     String?
+  category    String?
+  logoUrl     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  voice           BrandVoice?
+  boilerplates    BrandBoilerplate[]
+  pillars         MessagingPillar[]
+  spokespeople    Spokesperson[]
+  products        Product[]
+  competitors     Competitor[]
+  assets          BrandAsset[]
+  examples        BrandExample[]
+  memberships     BrandMembership[]
+  campaigns       Campaign[]
+  mediaLists      MediaList[]
+  monitoringQueries MonitoringQuery[]
+  coverageClips   CoverageClip[]
+  reports         Report[]
+  reportSchedules ReportSchedule[]
+  contactInteractions ContactInteraction[]
+  emailThreads    EmailThread[]
+  aiUsageLogs     AIUsageLog[]
+
+  @@unique([accountId, slug])
+  @@index([accountId])
+}
+
+model BrandVoice {
+  id             String   @id @default(cuid())
+  brandId        String   @unique
+  toneAttributes String[]
+  bannedWords    String[]
+  alwaysDo       String?
+  neverDo        String?
+  styleNotes     String?
+  sampleCorpus   String?
+  updatedAt      DateTime @updatedAt
+
+  brand Brand @relation(fields: [brandId], references: [id], onDelete: Cascade)
+}
+
+model BrandBoilerplate {
+  id        String   @id @default(cuid())
+  brandId   String
+  label     String
+  text      String
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  brand Brand @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@index([brandId])
+}
+
+model MessagingPillar {
+  id            String   @id @default(cuid())
+  brandId       String
+  title         String
+  description   String?
+  talkingPoints String[]
+  order         Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  brand Brand @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@index([brandId])
+}
+
+model Spokesperson {
+  id          String   @id @default(cuid())
+  brandId     String
+  name        String
+  title       String?
+  bio         String?
+  headshotUrl String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  brand Brand @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@index([brandId])
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  brandId     String
+  name        String
+  description String?
+  onePagerUrl String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  brand Brand @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@index([brandId])
+}
+
+model Competitor {
+  id        String   @id @default(cuid())
+  brandId   String
+  name      String
+  domain    String?
+  createdAt DateTime @default(now())
+
+  brand Brand @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@index([brandId])
+}
+
+model BrandAsset {
+  id         String         @id @default(cuid())
+  brandId    String
+  kind       BrandAssetKind
+  label      String?
+  storageUrl String
+  width      Int?
+  height     Int?
+  createdAt  DateTime       @default(now())
+
+  brand Brand @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@index([brandId, kind])
+}
+
+/// Prior campaigns or external pieces the brand wants to emulate. Used as
+/// reference material for Ideation Station and pitch drafting.
+model BrandExample {
+  id          String   @id @default(cuid())
+  brandId     String
+  title       String
+  url         String?
+  description String?
+  emulate     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  brand Brand @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@index([brandId])
+}
+
+model BrandMembership {
+  id        String   @id @default(cuid())
+  brandId   String
+  userId    String
+  createdAt DateTime @default(now())
+
+  brand Brand @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([brandId, userId])
+  @@index([userId])
+}
+
+// =============================================================================
+// Campaign core
+// =============================================================================
+
+model Campaign {
+  id                   String         @id @default(cuid())
+  brandId              String
+  title                String
+  objective            String?
+  goalType             String?
+  toneTags             String[]
+  budgetRange          String?
+  timelineStart        DateTime?
+  timelineEnd          DateTime?
+  launchDate           DateTime?
+  embargoDate          DateTime?
+  marketSentimentNotes String?
+  phase                CampaignPhase  @default(LEVEL_SET)
+  status               CampaignStatus @default(DRAFT)
+  primaryAngleId       String?        @unique
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
+  brand Brand @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  // Avoid a circular relation cascade by leaving primaryAngle as a nullable
+  // pointer via a separate relation field.
+  primaryAngle Angle? @relation("CampaignPrimaryAngle", fields: [primaryAngleId], references: [id])
+
+  kpis          CampaignKPI[]
+  angles        Angle[]         @relation("CampaignAngles")
+  ideationNotes IdeationNote[]
+  strategy      PitchStrategy?
+  mediaLists    MediaList[]
+  pitches       Pitch[]
+  pressReleases PressRelease[]
+  socialPosts   SocialPost[]
+  sequences     Sequence[]
+  coverageClips CoverageClip[]
+  monitoringQueries MonitoringQuery[]
+  reports       Report[]
+  talkingPoints TalkingPointsDoc[]
+  statusReports StatusReportDoc[]
+  mediaBriefs   MediaBriefDoc[]
+
+  @@index([brandId, status])
+}
+
+model CampaignKPI {
+  id         String   @id @default(cuid())
+  campaignId String
+  metric     String
+  target     Float?
+  actual     Float?
+  unit       String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+}
+
+model Angle {
+  id                 String      @id @default(cuid())
+  campaignId         String
+  title              String
+  hook               String?
+  narrative          String?
+  rationale          String?
+  newsworthinessScore Int?
+  audienceFit        String?
+  mediaFit           String?
+  risk               String?
+  source             AngleSource @default(MANUAL)
+  aiGenerated        Boolean     @default(false)
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  campaign       Campaign  @relation("CampaignAngles", fields: [campaignId], references: [id], onDelete: Cascade)
+  primaryForCampaign Campaign? @relation("CampaignPrimaryAngle")
+
+  pitches Pitch[]
+
+  @@index([campaignId])
+}
+
+/// Freeform ideation scratchpad — every AI-generated suggestion and every
+/// user-added note from the Ideation Station chat lands here.
+model IdeationNote {
+  id          String   @id @default(cuid())
+  campaignId  String
+  authorId    String?
+  content     String
+  aiGenerated Boolean  @default(false)
+  modelUsed   String?
+  createdAt   DateTime @default(now())
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+}
+
+model PitchStrategy {
+  id             String   @id @default(cuid())
+  campaignId     String   @unique
+  narrativeMemo  String?
+  tiering        Json?
+  sequencing     Json?
+  generatedAt    DateTime?
+  modelUsed      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+}
+
+// =============================================================================
+// Contacts & media
+// =============================================================================
+
+/// Contacts are a shared global directory so the same journalist can be
+/// referenced by many brands. History (ContactInteraction) is brand-scoped
+/// so data never leaks across accounts.
+model Contact {
+  id        String      @id @default(cuid())
+  name      String
+  email     String?
+  phone     String?
+  bio       String?
+  avatarUrl String?
+  kind      ContactKind
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  outlets       ContactOutlet[]
+  beats         ContactBeat[]
+  fields        ContactField[]
+  recentWork    RecentWork[]
+  notes         ContactNote[]
+  interactions  ContactInteraction[]
+  mediaLists    MediaListMember[]
+  pitches       Pitch[]
+  emailSends    EmailSend[]
+  coverageClips CoverageClip[]
+  mediaBriefs   MediaBriefDoc[]
+
+  @@index([kind])
+  @@index([email])
+}
+
+model Outlet {
+  id        String     @id @default(cuid())
+  name      String
+  domain    String?    @unique
+  kind      OutletKind
+  tier      OutletTier?
+  createdAt DateTime   @default(now())
+
+  contacts      ContactOutlet[]
+  coverageClips CoverageClip[]
+
+  @@index([kind])
+}
+
+model ContactOutlet {
+  id        String  @id @default(cuid())
+  contactId String
+  outletId  String
+  role      String?
+  isPrimary Boolean @default(false)
+  since     DateTime?
+
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  outlet  Outlet  @relation(fields: [outletId], references: [id], onDelete: Cascade)
+
+  @@unique([contactId, outletId])
+  @@index([outletId])
+}
+
+model Beat {
+  id   String @id @default(cuid())
+  name String @unique
+
+  contacts ContactBeat[]
+}
+
+model ContactBeat {
+  id        String @id @default(cuid())
+  contactId String
+  beatId    String
+
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  beat    Beat    @relation(fields: [beatId], references: [id], onDelete: Cascade)
+
+  @@unique([contactId, beatId])
+  @@index([beatId])
+}
+
+/// Key-value fields with provenance. Lets the UI render "Source: Hunter" or
+/// "You added this" badges and prevents an enrichment pass from stomping a
+/// user-entered value.
+model ContactField {
+  id        String             @id @default(cuid())
+  contactId String
+  key       String
+  value     String
+  source    ContactFieldSource
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@unique([contactId, key, source])
+  @@index([contactId])
+}
+
+model RecentWork {
+  id          String           @id @default(cuid())
+  contactId   String
+  title       String
+  url         String
+  publishedAt DateTime?
+  excerpt     String?
+  source      RecentWorkSource @default(RSS)
+  createdAt   DateTime         @default(now())
+
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@unique([contactId, url])
+  @@index([contactId, publishedAt])
+}
+
+/// AI-generated advice for how to pitch a given contact. Cached per contact
+/// so we don't re-bill the API every time the profile drawer opens.
+model ContactNote {
+  id          String   @id @default(cuid())
+  contactId   String
+  brandId     String
+  body        String
+  modelUsed   String?
+  generatedAt DateTime @default(now())
+
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@unique([contactId, brandId])
+  @@index([brandId])
+}
+
+/// Brand-scoped history. Ensures a contact's interactions with Brand A never
+/// surface when Brand B (same contact, different account) looks them up.
+model ContactInteraction {
+  id         String                 @id @default(cuid())
+  brandId    String
+  contactId  String
+  campaignId String?
+  kind       ContactInteractionKind
+  summary    String?
+  occurredAt DateTime               @default(now())
+  metadata   Json?
+
+  brand   Brand   @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([brandId, contactId])
+  @@index([campaignId])
+}
+
+model MediaList {
+  id          String   @id @default(cuid())
+  brandId     String
+  campaignId  String?
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  brand    Brand     @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  campaign Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  members MediaListMember[]
+
+  @@index([brandId])
+  @@index([campaignId])
+}
+
+model MediaListMember {
+  id          String  @id @default(cuid())
+  mediaListId String
+  contactId   String
+  tier        Int?
+  notes       String?
+  matchScore  Float?
+
+  mediaList MediaList @relation(fields: [mediaListId], references: [id], onDelete: Cascade)
+  contact   Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@unique([mediaListId, contactId])
+  @@index([contactId])
+}
+
+// =============================================================================
+// Content artifacts
+// =============================================================================
+
+model Pitch {
+  id          String      @id @default(cuid())
+  campaignId  String
+  angleId     String?
+  contactId   String?
+  subject     String
+  body        String
+  status      PitchStatus @default(DRAFT)
+  variantOf   String?
+  scheduledAt DateTime?
+  sentAt      DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  angle    Angle?   @relation(fields: [angleId], references: [id], onDelete: SetNull)
+  contact  Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  followUps FollowUp[]
+  sends     EmailSend[]
+
+  @@index([campaignId, status])
+  @@index([contactId])
+}
+
+model PressRelease {
+  id            String             @id @default(cuid())
+  campaignId    String
+  headline      String
+  subheadline   String?
+  body          String
+  dateline      String?
+  boilerplateId String?
+  embargoDate   DateTime?
+  status        PressReleaseStatus @default(DRAFT)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  campaign  Campaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  wireExport WireExport?
+
+  @@index([campaignId])
+}
+
+model SocialPost {
+  id          String           @id @default(cuid())
+  campaignId  String
+  platform    SocialPlatform
+  body        String
+  mediaUrls   String[]
+  status      SocialPostStatus @default(DRAFT)
+  scheduledAt DateTime?
+  publishedAt DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId, platform])
+}
+
+model FollowUp {
+  id           String    @id @default(cuid())
+  pitchId      String
+  sequenceStep Int       @default(1)
+  delayDays    Int       @default(4)
+  subject      String
+  body         String
+  sentAt       DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  pitch Pitch      @relation(fields: [pitchId], references: [id], onDelete: Cascade)
+  sends EmailSend[]
+
+  @@index([pitchId])
+}
+
+/// Polymorphic revision history. `entityType + entityId` points at the
+/// underlying content row; we keep the full content snapshot + the AI prompt
+/// used to produce it so we can replay or audit generations.
+model ContentVersion {
+  id            String            @id @default(cuid())
+  entityType    ContentEntityType
+  entityId      String
+  versionN      Int
+  snapshot      Json
+  aiPromptUsed  String?
+  modelUsed     String?
+  authorUserId  String?
+  createdAt     DateTime          @default(now())
+
+  @@unique([entityType, entityId, versionN])
+  @@index([entityType, entityId])
+}
+
+model Approval {
+  id          String            @id @default(cuid())
+  entityType  ContentEntityType
+  entityId    String
+  requestedBy String
+  approverId  String?
+  status      ApprovalStatus    @default(PENDING)
+  note        String?
+  createdAt   DateTime          @default(now())
+  decidedAt   DateTime?
+
+  requester User  @relation("ApprovalRequester", fields: [requestedBy], references: [id])
+  approver  User? @relation("ApprovalApprover", fields: [approverId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([status])
+}
+
+// =============================================================================
+// Execution
+// =============================================================================
+
+model MailboxConnection {
+  id                   String          @id @default(cuid())
+  userId               String
+  provider             MailboxProvider
+  email                String
+  encryptedAccessToken  String
+  encryptedRefreshToken String?
+  scopes               String[]
+  expiresAt            DateTime?
+  syncCursor           String?
+  status               MailboxStatus   @default(ACTIVE)
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  emailThreads EmailThread[]
+
+  @@unique([userId, email])
+  @@index([userId])
+}
+
+model EmailThread {
+  id               String  @id @default(cuid())
+  brandId          String
+  mailboxId        String?
+  provider         String
+  externalThreadId String
+  subject          String?
+  createdAt        DateTime @default(now())
+
+  brand   Brand              @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  mailbox MailboxConnection? @relation(fields: [mailboxId], references: [id], onDelete: SetNull)
+
+  sends EmailSend[]
+
+  @@unique([provider, externalThreadId])
+  @@index([brandId])
+}
+
+/// One row per outgoing message. `sendPath` tells us whether it went through
+/// the user's OAuth mailbox or via Resend. Tracking pixel + click-wrapper
+/// endpoints look rows up by `id`.
+model EmailSend {
+  id             String         @id @default(cuid())
+  pitchId        String?
+  followUpId     String?
+  contactId      String
+  threadId       String?
+  messageId      String?
+  sendPath       EmailSendPath
+  fromAddress    String
+  toAddress      String
+  subject        String
+  bodyHash       String?
+  trackingPixelId String        @unique @default(cuid())
+  sentAt         DateTime       @default(now())
+  openedAt       DateTime?
+  firstClickedAt DateTime?
+  repliedAt      DateTime?
+  bouncedAt      DateTime?
+
+  pitch    Pitch?       @relation(fields: [pitchId], references: [id], onDelete: SetNull)
+  followUp FollowUp?    @relation(fields: [followUpId], references: [id], onDelete: SetNull)
+  contact  Contact      @relation(fields: [contactId], references: [id])
+  thread   EmailThread? @relation(fields: [threadId], references: [id], onDelete: SetNull)
+  events   EmailEvent[]
+
+  @@index([pitchId])
+  @@index([followUpId])
+  @@index([contactId])
+}
+
+model EmailEvent {
+  id          String         @id @default(cuid())
+  emailSendId String
+  type        EmailEventType
+  occurredAt  DateTime       @default(now())
+  metadata    Json?
+
+  emailSend EmailSend @relation(fields: [emailSendId], references: [id], onDelete: Cascade)
+
+  @@index([emailSendId, type])
+}
+
+model Sequence {
+  id         String   @id @default(cuid())
+  campaignId String
+  name       String
+  rules      Json?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  campaign Campaign       @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  steps    SequenceStep[]
+
+  @@index([campaignId])
+}
+
+model SequenceStep {
+  id         String @id @default(cuid())
+  sequenceId String
+  stepN      Int
+  delayDays  Int
+  contentRef Json?
+
+  sequence Sequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+
+  @@unique([sequenceId, stepN])
+}
+
+model WireExport {
+  id                 String   @id @default(cuid())
+  pressReleaseId     String   @unique
+  kitStorageUrl      String
+  targetPartnerHint  String?
+  generatedAt        DateTime @default(now())
+
+  pressRelease PressRelease @relation(fields: [pressReleaseId], references: [id], onDelete: Cascade)
+}
+
+// =============================================================================
+// Analysis
+// =============================================================================
+
+model MonitoringQuery {
+  id          String             @id @default(cuid())
+  brandId     String
+  campaignId  String?
+  keywords    String[]
+  competitors String[]
+  sources     MonitoringSource[]
+  active      Boolean            @default(true)
+  lastRunAt   DateTime?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  brand    Brand     @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  campaign Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  mentions Mention[]
+
+  @@index([brandId])
+  @@index([campaignId])
+}
+
+/// Raw monitoring hit, pre-triage. A user can promote a Mention into a
+/// CoverageClip which then counts toward campaign reach, sentiment, SoV, etc.
+model Mention {
+  id                String           @id @default(cuid())
+  monitoringQueryId String
+  dedupeKey         String           @unique
+  url               String
+  outletName        String?
+  title             String
+  excerpt           String?
+  author            String?
+  publishedAt       DateTime?
+  sourceProvider    MonitoringSource
+  rawPayload        Json?
+  createdAt         DateTime         @default(now())
+
+  monitoringQuery MonitoringQuery @relation(fields: [monitoringQueryId], references: [id], onDelete: Cascade)
+  coverageClip    CoverageClip?
+
+  @@index([monitoringQueryId, publishedAt])
+}
+
+model CoverageClip {
+  id              String          @id @default(cuid())
+  brandId         String
+  campaignId      String?
+  mentionId       String?         @unique
+  contactId       String?
+  outletId        String?
+  url             String
+  headline        String
+  excerpt         String?
+  publishedAt     DateTime?
+  reachEstimate   Int?
+  aveEstimate     Float?
+  sentimentScore  Float?
+  sentimentLabel  SentimentLabel?
+  sovWeight       Float?
+  quoteUsed       String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  brand    Brand     @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  campaign Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  mention  Mention?  @relation(fields: [mentionId], references: [id], onDelete: SetNull)
+  contact  Contact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  outlet   Outlet?   @relation(fields: [outletId], references: [id], onDelete: SetNull)
+
+  sentimentAnalysis SentimentAnalysis?
+
+  @@index([brandId, publishedAt])
+  @@index([campaignId])
+}
+
+model SentimentAnalysis {
+  id          String         @id @default(cuid())
+  clipId      String         @unique
+  score       Float
+  label       SentimentLabel
+  confidence  Float
+  rationale   String?
+  modelUsed   String?
+  createdAt   DateTime       @default(now())
+
+  clip CoverageClip @relation(fields: [clipId], references: [id], onDelete: Cascade)
+}
+
+// =============================================================================
+// Reporting
+// =============================================================================
+
+/// Generic report envelope covering coverage / ROI / SoV / status briefs.
+/// The three on-demand generators (Status, Media Brief, Talking Points) also
+/// have dedicated tables below so their structured inputs (e.g. interview
+/// details on a Media Brief) don't get squashed into opaque JSON.
+model Report {
+  id            String      @id @default(cuid())
+  brandId       String
+  campaignId    String?
+  type          ReportType
+  title         String
+  payload       Json
+  markdown      String?
+  pdfUrl        String?
+  shareableSlug String?     @unique
+  expiresAt     DateTime?
+  generatedAt   DateTime    @default(now())
+
+  brand    Brand     @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  campaign Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  @@index([brandId, type])
+}
+
+model ReportSchedule {
+  id         String        @id @default(cuid())
+  brandId    String
+  campaignId String?
+  type       ReportType
+  cadence    ReportCadence
+  recipients String[]
+  lastSentAt DateTime?
+  active     Boolean       @default(true)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  brand Brand @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@index([brandId])
+}
+
+model StatusReportDoc {
+  id          String   @id @default(cuid())
+  campaignId  String
+  markdown    String
+  modelUsed   String?
+  pdfUrl      String?
+  generatedAt DateTime @default(now())
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId, generatedAt])
+}
+
+model MediaBriefDoc {
+  id              String   @id @default(cuid())
+  contactId       String
+  campaignId      String?
+  markdown        String
+  interviewDetails Json?
+  modelUsed       String?
+  pdfUrl          String?
+  generatedAt     DateTime @default(now())
+
+  contact  Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  campaign Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  @@index([contactId])
+  @@index([campaignId])
+}
+
+model TalkingPointsDoc {
+  id          String   @id @default(cuid())
+  campaignId  String
+  markdown    String
+  modelUsed   String?
+  pdfUrl      String?
+  generatedAt DateTime @default(now())
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId, generatedAt])
+}
+
+// =============================================================================
+// Auditing & meta
+// =============================================================================
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  accountId String
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  before    Json?
+  after     Json?
+  createdAt DateTime @default(now())
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([accountId, createdAt])
+}
+
+model AIUsageLog {
+  id           String   @id @default(cuid())
+  accountId    String
+  brandId      String?
+  feature      String
+  model        String
+  inputTokens  Int
+  outputTokens Int
+  cacheReadTokens  Int? @default(0)
+  cacheWriteTokens Int? @default(0)
+  costUsd      Float?
+  createdAt    DateTime @default(now())
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  brand   Brand?  @relation(fields: [brandId], references: [id], onDelete: SetNull)
+
+  @@index([accountId, createdAt])
+  @@index([brandId, createdAt])
+}
