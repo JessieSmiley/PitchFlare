@@ -1,0 +1,15 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    {
+      "path": "/api/cron/monitor",
+      "schedule": "0 */6 * * *"
+    }
+  ],
+  "functions": {
+    "app/api/cron/monitor/route.ts": { "maxDuration": 300 },
+    "app/api/reports/[type]/[id]/pdf/route.ts": { "maxDuration": 60 },
+    "app/api/webhooks/stripe/route.ts": { "maxDuration": 30 },
+    "app/api/webhooks/clerk/route.ts": { "maxDuration": 30 }
+  }
+}

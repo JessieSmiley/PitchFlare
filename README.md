@@ -106,6 +106,7 @@ the Clerk webhook provisions your Account row on sign-up (wired in Chunk C).
 | `pnpm db:push` | Prototype schema changes without a migration file |
 | `pnpm db:studio` | Open Prisma Studio to browse data |
 | `pnpm db:seed` | Seed demo data |
+| `pnpm stripe:setup` | Provision Stripe products + prices (idempotent) |
 | `pnpm test` | Run Vitest once |
 
 ## Repo layout
@@ -119,6 +120,54 @@ components/            Shared UI (shadcn lives under components/ui in later chun
 lib/                   db, env, auth helpers, AI clients, providers, crypto
 prisma/                schema.prisma + seed.ts
 docs/                  ROADMAP.md and architecture notes
+```
+
+## Deploying to Vercel
+
+1. **Push the repo to GitHub** (if not already).
+2. **New project** on [vercel.com](https://vercel.com) → import from the repo. Framework preset: Next.js. Install command: `pnpm install`.
+3. **Environment variables** — paste every value from `.env.example` into the Vercel project settings. Mirror them into Preview + Production environments (most overlap; `NEXT_PUBLIC_APP_URL` will differ).
+4. **Connect your Neon branch** via the Vercel ↔ Neon integration, or paste `DATABASE_URL` + `DIRECT_URL` manually.
+5. **Configure Stripe webhook:** point a new endpoint at `https://<your-domain>/api/webhooks/stripe` subscribed to `checkout.session.completed`, `customer.subscription.*`, and `invoice.payment_failed`. Paste the signing secret into `STRIPE_WEBHOOK_SECRET`.
+6. **Configure Clerk webhook:** `https://<your-domain>/api/webhooks/clerk` subscribed to `user.*`, `organization.*`, `organizationMembership.*`. Paste the signing secret into `CLERK_WEBHOOK_SECRET`.
+7. **Cron:** `vercel.json` already registers `/api/cron/monitor` every 6 hours. Vercel calls it with `Authorization: Bearer $CRON_SECRET` — set `CRON_SECRET` in the project env.
+8. **Deploy.** The build runs `prisma generate && next build`. Migrations run separately: `pnpm db:deploy` against production `DIRECT_URL` from your machine or from CI before you promote.
+9. **Smoke test production** in order:
+   - Sign up → Clerk org is auto-created → Account row appears (check Neon / Prisma Studio).
+   - Create a brand → Level-Set fields auto-save → completeness meter moves.
+   - Run Strategize → Ideation returns 5 angles → pick a primary.
+   - Import a contact from a real journalist's URL → open the drawer → fields show with the `Auto-scraped` badge.
+   - Connect Hunter on `/dashboard/settings/integrations` → Enrich the contact → fields appear with `Data partner` badge.
+   - Draft a pitch → Approve → send from Execute (use a Resend sandbox domain or your own verified sender).
+   - Confirm open tracking by opening the email in a real inbox → `openedAt` stamps on the EmailSend row.
+   - Manually add a coverage URL on Analyze → sentiment appears.
+   - Generate a Status Report → download the PDF.
+   - Upgrade via Stripe (test mode) → Account.plan flips and seat/brand limits adjust.
+
+## Repo layout
+
+```
+app/
+  (auth)/              Clerk sign-in / sign-up
+  (dashboard)/         Authenticated app shell + six-phase screens + help + error/loading
+  api/
+    cron/              Vercel Cron entrypoints
+    reports/           PDF download route
+    track/             Open + click tracking pixels
+    webhooks/          Clerk + Stripe signature-verified handlers
+  onboarding/          Create-org + first-brand flow
+components/
+  analyze/ brand/ billing/ draft/ execute/ help/ integrations/
+  report/ shortcuts/ strategize/ targets/ analytics/
+lib/
+  ai/ auth/ billing/ brand/ campaigns/ contacts/ email/
+  integrations/ monitoring/ pitches/ providers/ reports/
+  crypto.ts  db.ts  env.ts  plans.ts  utils.ts
+prisma/                schema.prisma + seed.ts
+scripts/               setup-stripe-products.ts
+docs/                  ROADMAP.md
+instrumentation.ts     Sentry request hook (no-op if @sentry/nextjs isn't installed)
+vercel.json            Cron schedule + per-route maxDuration
 ```
 
 ## License

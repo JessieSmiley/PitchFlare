@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
 import { getTenant, listAccessibleBrands } from "@/lib/auth/tenant";
 import { BrandSwitcher } from "@/components/brand-switcher";
+import { KeyboardShortcuts } from "@/components/shortcuts/keyboard-shortcuts";
 
 export default async function DashboardLayout({
   children,
@@ -22,6 +23,13 @@ export default async function DashboardLayout({
 
   return (
     <div className="flex min-h-screen bg-background">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-brand-pink focus:px-3 focus:py-2 focus:text-sm focus:text-white"
+      >
+        Skip to main content
+      </a>
+      <KeyboardShortcuts />
       <aside className="w-[220px] shrink-0 border-r border-border bg-white">
         <div className="flex items-center gap-2 px-4 py-4">
           <div className="h-7 w-7 rounded-full bg-brand-pink" aria-hidden />
@@ -97,7 +105,9 @@ export default async function DashboardLayout({
             <UserButton afterSignOutUrl="/" />
           </div>
         </header>
-        <main className="flex-1 overflow-auto p-8">{children}</main>
+        <main id="main-content" className="flex-1 overflow-auto p-8">
+          {children}
+        </main>
       </div>
     </div>
   );

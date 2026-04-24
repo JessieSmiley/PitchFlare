@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Inter, Playfair_Display } from "next/font/google";
+import { PosthogProvider } from "@/components/analytics/posthog-provider";
 import "./globals.css";
 
 const inter = Inter({
@@ -30,7 +32,9 @@ export default function RootLayout({
     <ClerkProvider>
       <html lang="en" className={`${inter.variable} ${playfair.variable}`}>
         <body className="min-h-screen bg-background font-sans antialiased">
-          {children}
+          <Suspense fallback={null}>
+            <PosthogProvider>{children}</PosthogProvider>
+          </Suspense>
         </body>
       </html>
     </ClerkProvider>
