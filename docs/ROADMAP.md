@@ -14,7 +14,7 @@ branches for the latest state.
 | **F** | Pitch composer (single + batch + A/B variants), press releases, social posts, follow-ups. Execute/email: mailbox OAuth (Gmail/Outlook), Resend fallback, send queue, throttle, open/click tracking endpoints, follow-up scheduler | shipped (Pitches + Execute-email; Press Releases / Social / Follow-ups / Mailbox OAuth deferred) |
 | **G** | Coverage monitoring cron (Google News RSS + GDELT + Bing News), sentiment via Claude, the three on-demand generators (Status Report, Media Brief, Talking Points) with `@react-pdf/renderer` branded exports | shipped (Google News RSS source; GDELT + Bing News + PostHog-ish SoV deferred) |
 | **H** | Stripe products + prices, Checkout, Customer Portal, `/api/webhooks/stripe`, tier-limit enforcement wired to real subscription state | shipped |
-| **I** | `DataPartner` provider interface + modules: Hunter.io (first), Apollo, Podchaser, SparkToro. AES-256-GCM crypto helper for partner API keys. Enrichment merge respecting source provenance. | pending |
+| **I** | `DataPartner` provider interface + modules: Hunter.io (first), Apollo, Podchaser, SparkToro. AES-256-GCM crypto helper for partner API keys. Enrichment merge respecting source provenance. | shipped (Hunter live; Apollo / Podchaser / SparkToro stubbed behind the same interface) |
 | **J** | Error boundaries, loading + empty states, keyboard shortcuts, a11y pass, `/help`, Sentry, PostHog, Vercel deploy, production smoke test | pending |
 
 ## Out of scope for v1

@@ -1,5 +1,9 @@
 "use client";
 
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { enrichContactWithPartner } from "@/lib/integrations/actions";
+
 export type ContactDetail = {
   id: string;
   name: string;
@@ -33,7 +37,26 @@ export function ContactDrawer({
   contact: ContactDetail | null;
   onClose: () => void;
 }) {
+  const router = useRouter();
+  const [enriching, startEnrich] = useTransition();
+  const [enrichMessage, setEnrichMessage] = useState<string | null>(null);
+
   if (!contact) return null;
+
+  const runEnrich = (partner: "HUNTER") => {
+    setEnrichMessage(null);
+    startEnrich(async () => {
+      const res = await enrichContactWithPartner({
+        contactId: contact.id,
+        partner,
+      });
+      if (!res.ok) setEnrichMessage(res.error);
+      else {
+        setEnrichMessage(`Wrote ${res.written} field${res.written === 1 ? "" : "s"} from ${partner}.`);
+        router.refresh();
+      }
+    });
+  };
   return (
     <div className="fixed inset-0 z-40 flex justify-end bg-black/20" onClick={onClose}>
       <aside
@@ -156,9 +179,26 @@ export function ContactDrawer({
           </section>
         )}
 
-        <p className="mt-6 text-[10px] text-muted-foreground">
-          AI pitch notes + &ldquo;Enrich with Hunter&rdquo; land in Chunk I
-          (data partners).
+        <section className="mt-6 flex flex-wrap items-center gap-2 border-t border-border pt-4">
+          <button
+            type="button"
+            onClick={() => runEnrich("HUNTER")}
+            disabled={enriching}
+            className="rounded-full bg-brand-pink px-3 py-1 text-xs text-white hover:opacity-90 disabled:opacity-60"
+          >
+            {enriching ? "Enriching…" : "✦ Enrich with Hunter"}
+          </button>
+          {enrichMessage && (
+            <span className="text-xs text-muted-foreground">
+              {enrichMessage}
+            </span>
+          )}
+        </section>
+
+        <p className="mt-3 text-[10px] text-muted-foreground">
+          Partner-written fields appear in the Fields section above with a
+          &ldquo;Data partner&rdquo; badge. Your manually-added fields are
+          never overwritten.
         </p>
       </aside>
     </div>
