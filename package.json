@@ -14,6 +14,7 @@
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
+    "stripe:setup": "tsx scripts/setup-stripe-products.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
