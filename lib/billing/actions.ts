@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { requireTenant } from "@/lib/auth/tenant";
-import { getPriceIdForPlan, stripe, type PlanCycle } from "@/lib/billing/stripe";
+import { getPriceIdForPlan, getStripe, type PlanCycle } from "@/lib/billing/stripe";
 import type { Plan } from "@prisma/client";
 
 type ActionResult<T = unknown> =
@@ -52,7 +52,7 @@ export async function createCheckoutSession(
   const cancelUrl = `${env.APP_URL}/dashboard/settings/billing?checkout=cancelled`;
 
   try {
-    const session = await stripe.checkout.sessions.create({
+    const session = await getStripe().checkout.sessions.create({
       mode: "subscription",
       payment_method_types: ["card"],
       line_items: [{ price: priceId, quantity: 1 }],
@@ -106,7 +106,7 @@ export async function createPortalSession(): Promise<
     };
   }
   try {
-    const portal = await stripe.billingPortal.sessions.create({
+    const portal = await getStripe().billingPortal.sessions.create({
       customer: tenant.account.stripeCustomerId,
       return_url: `${env.APP_URL}/dashboard/settings/billing`,
     });
