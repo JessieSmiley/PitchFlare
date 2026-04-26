@@ -21,7 +21,7 @@ const CreateContactInput = z.object({
 });
 
 export async function createContact(
-  input: z.infer<typeof CreateContactInput>,
+  input: z.input<typeof CreateContactInput>,
 ): Promise<ActionResult<{ contactId: string }>> {
   const parsed = CreateContactInput.safeParse(input);
   if (!parsed.success) {
@@ -105,7 +105,7 @@ const ImportFromUrlInput = z.object({
 });
 
 export async function importContactFromUrl(
-  input: z.infer<typeof ImportFromUrlInput>,
+  input: z.input<typeof ImportFromUrlInput>,
 ): Promise<ActionResult<{ contactId: string }>> {
   const parsed = ImportFromUrlInput.safeParse(input);
   if (!parsed.success) {
@@ -223,7 +223,7 @@ const BuildTargetListInput = z.object({
  * against the primary angle. Users can then edit the list by hand.
  */
 export async function buildTargetListFromAngle(
-  input: z.infer<typeof BuildTargetListInput>,
+  input: z.input<typeof BuildTargetListInput>,
 ): Promise<ActionResult<{ mediaListId: string; count: number }>> {
   const parsed = BuildTargetListInput.safeParse(input);
   if (!parsed.success) {

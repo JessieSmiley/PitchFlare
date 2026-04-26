@@ -54,7 +54,7 @@ const GenerateAnglesInput = z.object({
  * stream in a later pass.
  */
 export async function generateAngles(
-  input: z.infer<typeof GenerateAnglesInput>,
+  input: z.input<typeof GenerateAnglesInput>,
 ): Promise<ActionResult<{ angles: GeneratedAngle[] }>> {
   const parsed = GenerateAnglesInput.safeParse(input);
   if (!parsed.success) {
@@ -232,7 +232,7 @@ const RemixAngleInput = z.object({
  * a new Angle row — the original is preserved so users can compare.
  */
 export async function remixAngle(
-  input: z.infer<typeof RemixAngleInput>,
+  input: z.input<typeof RemixAngleInput>,
 ): Promise<ActionResult<{ angle: GeneratedAngle }>> {
   const parsed = RemixAngleInput.safeParse(input);
   if (!parsed.success) {

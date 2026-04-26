@@ -32,7 +32,7 @@ const UpdatePitchInput = z.object({
 });
 
 export async function updatePitchDraft(
-  input: z.infer<typeof UpdatePitchInput>,
+  input: z.input<typeof UpdatePitchInput>,
 ): Promise<ActionResult> {
   const parsed = UpdatePitchInput.safeParse(input);
   if (!parsed.success) {

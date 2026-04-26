@@ -37,7 +37,7 @@ const BrandBasicsInput = z.object({
 });
 
 export async function updateBrandBasics(
-  input: z.infer<typeof BrandBasicsInput>,
+  input: z.input<typeof BrandBasicsInput>,
 ): Promise<ActionResult> {
   const parsed = BrandBasicsInput.safeParse(input);
   if (!parsed.success) {
@@ -75,7 +75,7 @@ const BrandVoiceInput = z.object({
 });
 
 export async function updateBrandVoice(
-  input: z.infer<typeof BrandVoiceInput>,
+  input: z.input<typeof BrandVoiceInput>,
 ): Promise<ActionResult> {
   const parsed = BrandVoiceInput.safeParse(input);
   if (!parsed.success) {
@@ -120,7 +120,7 @@ const BoilerplateInput = z.object({
 });
 
 export async function updateDefaultBoilerplate(
-  input: z.infer<typeof BoilerplateInput>,
+  input: z.input<typeof BoilerplateInput>,
 ): Promise<ActionResult> {
   const parsed = BoilerplateInput.safeParse(input);
   if (!parsed.success) {
@@ -167,7 +167,7 @@ const ExampleUpsertInput = z.object({
 });
 
 export async function upsertBrandExample(
-  input: z.infer<typeof ExampleUpsertInput>,
+  input: z.input<typeof ExampleUpsertInput>,
 ): Promise<ActionResult<{ id: string }>> {
   const parsed = ExampleUpsertInput.safeParse(input);
   if (!parsed.success) {
@@ -234,7 +234,7 @@ const VoiceFromWebsiteInput = z.object({
  * responses stream back fast; no strategic reasoning needed.
  */
 export async function analyzeWebsiteForVoice(
-  input: z.infer<typeof VoiceFromWebsiteInput>,
+  input: z.input<typeof VoiceFromWebsiteInput>,
 ): Promise<ActionResult<{ voice: VoiceFromWebsite }>> {
   const parsed = VoiceFromWebsiteInput.safeParse(input);
   if (!parsed.success) {

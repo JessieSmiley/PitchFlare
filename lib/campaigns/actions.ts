@@ -44,7 +44,7 @@ const CreateCampaignInput = z.object({
 });
 
 export async function createCampaign(
-  input: z.infer<typeof CreateCampaignInput>,
+  input: z.input<typeof CreateCampaignInput>,
 ): Promise<ActionResult<{ campaign: Campaign }>> {
   const parsed = CreateCampaignInput.safeParse(input);
   if (!parsed.success) {
@@ -83,7 +83,7 @@ const UpdateCampaignInput = CreateCampaignInput.partial().extend({
 });
 
 export async function updateCampaign(
-  input: z.infer<typeof UpdateCampaignInput>,
+  input: z.input<typeof UpdateCampaignInput>,
 ): Promise<ActionResult> {
   const parsed = UpdateCampaignInput.safeParse(input);
   if (!parsed.success) {

@@ -37,6 +37,7 @@ export default function GlobalError({
               error id: {error.digest}
             </p>
           )}
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- root error boundary can't use Link; the router itself may have failed to boot */}
           <a
             href="/"
             style={{

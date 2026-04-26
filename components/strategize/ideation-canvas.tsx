@@ -2,11 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import {
-  generateAngles,
-  remixAngle,
-  type GeneratedAngle,
-} from "@/lib/campaigns/ai";
+import { generateAngles, remixAngle } from "@/lib/campaigns/ai";
 import { deleteAngle, setPrimaryAngle } from "@/lib/campaigns/actions";
 
 type AngleRow = {

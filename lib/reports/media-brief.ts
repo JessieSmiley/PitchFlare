@@ -39,7 +39,7 @@ const GenerateInput = z.object({
  * logistics → Claude Opus writes the narrative. Persists to MediaBriefDoc.
  */
 export async function generateMediaBrief(
-  input: z.infer<typeof GenerateInput>,
+  input: z.input<typeof GenerateInput>,
 ): Promise<ActionResult<{ reportId: string; markdown: string }>> {
   const parsed = GenerateInput.safeParse(input);
   if (!parsed.success) {

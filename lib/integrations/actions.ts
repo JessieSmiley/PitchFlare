@@ -28,7 +28,7 @@ const ConnectInput = z.object({
  * decrypt helper is server-only.
  */
 export async function connectIntegration(
-  input: z.infer<typeof ConnectInput>,
+  input: z.input<typeof ConnectInput>,
 ): Promise<ActionResult> {
   const parsed = ConnectInput.safeParse(input);
   if (!parsed.success) {
@@ -108,7 +108,7 @@ const EnrichInput = z.object({
  * lets the user pick).
  */
 export async function enrichContactWithPartner(
-  input: z.infer<typeof EnrichInput>,
+  input: z.input<typeof EnrichInput>,
 ): Promise<ActionResult<{ written: number; partnerFields: number }>> {
   const parsed = EnrichInput.safeParse(input);
   if (!parsed.success) {

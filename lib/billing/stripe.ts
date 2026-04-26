@@ -10,7 +10,9 @@ export const stripe =
   new Stripe(env.STRIPE_SECRET_KEY, {
     // Pin the API version so Stripe's behavior is stable even after they
     // roll new defaults. Update deliberately when we want new features.
-    apiVersion: "2024-12-18.acacia",
+    // Cast: SDK types only allow its bundled latest version literal, but
+    // older valid versions are still accepted at runtime by the Stripe API.
+    apiVersion: "2024-12-18.acacia" as Stripe.LatestApiVersion,
     typescript: true,
   });
 

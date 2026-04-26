@@ -36,7 +36,7 @@ const AddCoverageInput = z.object({
  * CoverageClip + SentimentAnalysis rows.
  */
 export async function addCoverageFromUrl(
-  input: z.infer<typeof AddCoverageInput>,
+  input: z.input<typeof AddCoverageInput>,
 ): Promise<ActionResult<{ clipId: string }>> {
   const parsed = AddCoverageInput.safeParse(input);
   if (!parsed.success) {
@@ -69,7 +69,7 @@ export async function addCoverageFromUrl(
       $(`meta[name="${name}"]`).attr("content") ??
       null;
 
-    headline = meta("og:title") ?? $("h1").first().text().trim() || null;
+    headline = (meta("og:title") ?? $("h1").first().text().trim()) || null;
     excerpt = meta("og:description") ?? meta("description") ?? null;
     outletName = meta("og:site_name") ?? domain;
     const pubMeta = meta("article:published_time") ?? meta("pubdate");
@@ -151,7 +151,7 @@ const RunMonitoringInput = z.object({
  * UI. Deduplicates by (provider, url) to avoid double-counting.
  */
 export async function runMonitoringOnce(
-  input: z.infer<typeof RunMonitoringInput>,
+  input: z.input<typeof RunMonitoringInput>,
 ): Promise<ActionResult<{ inserted: number; skipped: number }>> {
   const parsed = RunMonitoringInput.safeParse(input);
   if (!parsed.success) {

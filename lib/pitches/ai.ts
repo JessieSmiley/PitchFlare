@@ -138,7 +138,7 @@ const GenerateDraftInput = z.object({
  * auto-sends.
  */
 export async function generatePitchDraft(
-  input: z.infer<typeof GenerateDraftInput>,
+  input: z.input<typeof GenerateDraftInput>,
 ): Promise<ActionResult<{ pitchId: string; subject: string; body: string }>> {
   const parsed = GenerateDraftInput.safeParse(input);
   if (!parsed.success) {
@@ -246,7 +246,7 @@ const GenerateVariantsInput = z.object({
  * via `updatePitchDraft`.
  */
 export async function generatePitchVariants(
-  input: z.infer<typeof GenerateVariantsInput>,
+  input: z.input<typeof GenerateVariantsInput>,
 ): Promise<
   ActionResult<{
     variants: Array<{ label: string; subject: string; body: string }>;
@@ -344,7 +344,7 @@ const BatchInput = z.object({
  * to keep per-account Claude concurrency low and avoid bursty 429s.
  */
 export async function batchGeneratePitches(
-  input: z.infer<typeof BatchInput>,
+  input: z.input<typeof BatchInput>,
 ): Promise<ActionResult<{ generated: number; failed: number }>> {
   const parsed = BatchInput.safeParse(input);
   if (!parsed.success) {
