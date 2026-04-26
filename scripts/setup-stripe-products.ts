@@ -48,7 +48,7 @@ async function main() {
     console.error("STRIPE_SECRET_KEY is not set.");
     process.exit(1);
   }
-  const stripe = new Stripe(key, { apiVersion: "2024-12-18.acacia" });
+  const stripe = new Stripe(key, { apiVersion: "2024-12-18.acacia" as Stripe.LatestApiVersion });
 
   const out: string[] = [];
 
