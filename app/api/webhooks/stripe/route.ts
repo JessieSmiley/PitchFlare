@@ -4,9 +4,9 @@ import type Stripe from "stripe";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import {
+  getStripe,
   limitsForPlan,
   resolvePriceIdToPlan,
-  stripe,
 } from "@/lib/billing/stripe";
 import type { Plan, SubscriptionStatus } from "@prisma/client";
 
@@ -36,7 +36,7 @@ export async function POST(req: Request) {
   const rawBody = await req.text();
   let event: Stripe.Event;
   try {
-    event = stripe.webhooks.constructEvent(
+    event = getStripe().webhooks.constructEvent(
       rawBody,
       signature,
       env.STRIPE_WEBHOOK_SECRET,
