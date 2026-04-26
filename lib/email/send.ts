@@ -35,7 +35,7 @@ const SendInput = z.object({
  * both so the Chunk-F implementation slots in cleanly.
  */
 export async function sendApprovedPitches(
-  input: z.infer<typeof SendInput>,
+  input: z.input<typeof SendInput>,
 ): Promise<
   ActionResult<{ sent: number; failed: number; errors: string[] }>
 > {

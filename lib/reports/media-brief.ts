@@ -4,6 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireTenant } from "@/lib/auth/tenant";
+import type Anthropic from "@anthropic-ai/sdk";
 import { anthropic, MODELS } from "@/lib/ai/anthropic";
 import { logAIUsage } from "@/lib/ai/log";
 import {
@@ -39,7 +40,7 @@ const GenerateInput = z.object({
  * logistics → Claude Opus writes the narrative. Persists to MediaBriefDoc.
  */
 export async function generateMediaBrief(
-  input: z.infer<typeof GenerateInput>,
+  input: z.input<typeof GenerateInput>,
 ): Promise<ActionResult<{ reportId: string; markdown: string }>> {
   const parsed = GenerateInput.safeParse(input);
   if (!parsed.success) {
@@ -138,7 +139,7 @@ export async function generateMediaBrief(
     });
 
     const markdown = response.content
-      .filter((b): b is { type: "text"; text: string } => b.type === "text")
+      .filter((b): b is Anthropic.Messages.TextBlock => b.type === "text")
       .map((b) => b.text)
       .join("\n")
       .trim();

@@ -24,15 +24,13 @@ export async function register() {
  * Next.js when a request handler throws.
  */
 export async function onRequestError(
-  error: unknown,
-  request: { path: string; method: string; headers: Record<string, string> },
-  context: { routerKind: "Pages Router" | "App Router"; routePath: string },
+  ...args: Parameters<typeof import("@sentry/nextjs").captureRequestError>
 ) {
   if (!process.env.SENTRY_DSN) return;
   try {
     const Sentry = await import("@sentry/nextjs").catch(() => null);
     if (!Sentry) return;
-    Sentry.captureRequestError(error, request, context);
+    Sentry.captureRequestError(...args);
   } catch {
     // Never let instrumentation break a request path.
   }

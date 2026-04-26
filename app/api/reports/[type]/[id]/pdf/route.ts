@@ -6,8 +6,6 @@ import { renderReportPdf } from "@/lib/reports/pdf";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-type ReportType = "status" | "media-brief" | "talking-points";
-
 /**
  * Stream a PDF for one of the three on-demand reports. Access is scoped
  * to the caller's account via the report's campaign → brand → account
@@ -15,7 +13,7 @@ type ReportType = "status" | "media-brief" | "talking-points";
  */
 export async function GET(
   _req: NextRequest,
-  { params }: { params: Promise<{ type: ReportType; id: string }> },
+  { params }: { params: Promise<{ type: string; id: string }> },
 ) {
   const { type, id } = await params;
 

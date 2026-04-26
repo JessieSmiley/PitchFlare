@@ -44,7 +44,7 @@ const CreateBrandInput = z.object({
  * BrandMembership so they can see the brand in the switcher.
  */
 export async function createBrandAction(
-  input: z.infer<typeof CreateBrandInput>,
+  input: z.input<typeof CreateBrandInput>,
 ): Promise<
   | { ok: true; brandId: string; slug: string }
   | { ok: false; error: string; code?: string }

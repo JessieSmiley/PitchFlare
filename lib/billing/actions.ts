@@ -28,7 +28,7 @@ const CheckoutInput = z.object({
  * the webhook persists.
  */
 export async function createCheckoutSession(
-  input: z.infer<typeof CheckoutInput>,
+  input: z.input<typeof CheckoutInput>,
 ): Promise<ActionResult<{ url: string }>> {
   const parsed = CheckoutInput.safeParse(input);
   if (!parsed.success) {
