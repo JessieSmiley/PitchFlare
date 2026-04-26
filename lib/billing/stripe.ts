@@ -5,19 +5,20 @@ import type { Plan } from "@prisma/client";
 
 const globalForStripe = globalThis as unknown as { stripe: Stripe | undefined };
 
-export const stripe =
-  globalForStripe.stripe ??
-  new Stripe(env.STRIPE_SECRET_KEY, {
-    // Pin the API version so Stripe's behavior is stable even after they
-    // roll new defaults. Update deliberately when we want new features.
-    // Cast: SDK types only allow its bundled latest version literal, but
-    // older valid versions are still accepted at runtime by the Stripe API.
-    apiVersion: "2024-12-18.acacia" as Stripe.LatestApiVersion,
-    typescript: true,
-  });
-
-if (process.env.NODE_ENV !== "production") {
-  globalForStripe.stripe = stripe;
+// Lazy init: defers env access to request time so `next build` can collect
+// page data without STRIPE_SECRET_KEY present in the build environment.
+export function getStripe(): Stripe {
+  if (!globalForStripe.stripe) {
+    globalForStripe.stripe = new Stripe(env.STRIPE_SECRET_KEY, {
+      // Pin the API version so Stripe's behavior is stable even after they
+      // roll new defaults. Update deliberately when we want new features.
+      // Cast: SDK types only allow its bundled latest version literal, but
+      // older valid versions are still accepted at runtime by the Stripe API.
+      apiVersion: "2024-12-18.acacia" as Stripe.LatestApiVersion,
+      typescript: true,
+    });
+  }
+  return globalForStripe.stripe;
 }
 
 /** Maps Stripe price IDs back to our internal Plan + billing cycle. */
