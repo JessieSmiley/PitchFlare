@@ -5,6 +5,8 @@ import { getTenant, listAccessibleBrands } from "@/lib/auth/tenant";
 import { BrandSwitcher } from "@/components/brand-switcher";
 import { KeyboardShortcuts } from "@/components/shortcuts/keyboard-shortcuts";
 
+export const dynamic = "force-dynamic";
+
 export default async function DashboardLayout({
   children,
 }: {
