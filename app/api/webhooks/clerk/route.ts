@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { Webhook } from "svix";
 import type { WebhookEvent } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
-import { PLAN_LIMITS } from "@/lib/plans";
+import { upsertAccountFromClerkOrg } from "@/lib/auth/provisioning";
 import { assertCanInviteUser, TierLimitError } from "@/lib/auth/tier-limits";
 
 export const runtime = "nodejs";
@@ -134,19 +134,10 @@ type ClerkOrg = {
 
 async function upsertAccount(o: ClerkOrg) {
   // New orgs default to SOLO. Plan upgrades happen via the Stripe webhook
-  // (Chunk H), which sets plan + seatLimit + brandLimit together.
-  const defaults = PLAN_LIMITS.SOLO;
-  await db.account.upsert({
-    where: { clerkOrgId: o.id },
-    update: { name: o.name },
-    create: {
-      clerkOrgId: o.id,
-      name: o.name,
-      plan: "SOLO",
-      seatLimit: defaults.maxSeats,
-      brandLimit: defaults.maxBrands,
-    },
-  });
+  // (Chunk H), which sets plan + seatLimit + brandLimit together. The actual
+  // write lives in lib/auth/provisioning so the onboarding page can run the
+  // same logic synchronously when the webhook is delayed/misconfigured.
+  await upsertAccountFromClerkOrg({ id: o.id, name: o.name });
 }
 
 type ClerkMembership = {
