@@ -127,8 +127,8 @@ export function AnalyzeShell({
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
               Google News RSS queries the brand + campaign title every 6
-              hours via Vercel Cron. Promote raw mentions to clips to add
-              them to reports.
+              hours on a scheduled cron. Promote raw mentions to clips to
+              add them to reports.
             </p>
           </section>
 

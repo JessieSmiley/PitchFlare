@@ -14,7 +14,8 @@ the chunk where they'll be implemented. Roadmap in [`docs/ROADMAP.md`](./docs/RO
 
 Next.js 15 (App Router) · TypeScript · Tailwind + shadcn/ui · Prisma +
 Postgres (Neon) · Clerk (auth + organizations) · Anthropic SDK · Stripe
-· Resend · Inngest · Vercel. Full reasoning in SPEC.md §4.
+· Resend · Inngest · DigitalOcean App Platform. Full reasoning in
+SPEC.md §4.
 
 ## Local setup
 
@@ -22,8 +23,8 @@ Postgres (Neon) · Clerk (auth + organizations) · Anthropic SDK · Stripe
 
 - Node 20+ (this repo is developed on 22) — `node --version`
 - pnpm (or npm) — `pnpm --version`
-- A Postgres database. **Neon is recommended** because its branching model
-  pairs with Vercel preview deploys.
+- A Postgres database. **Neon is recommended** for its serverless pricing
+  and branching model.
 
 ### 2. Install dependencies
 
@@ -122,16 +123,16 @@ prisma/                schema.prisma + seed.ts
 docs/                  ROADMAP.md and architecture notes
 ```
 
-## Deploying to Vercel
+## Deploying to DigitalOcean App Platform
 
 1. **Push the repo to GitHub** (if not already).
-2. **New project** on [vercel.com](https://vercel.com) → import from the repo. Framework preset: Next.js. Install command: `pnpm install`.
-3. **Environment variables** — paste every value from `.env.example` into the Vercel project settings. Mirror them into Preview + Production environments (most overlap; `NEXT_PUBLIC_APP_URL` will differ).
-4. **Connect your Neon branch** via the Vercel ↔ Neon integration, or paste `DATABASE_URL` + `DIRECT_URL` manually.
+2. **Create an App** on [cloud.digitalocean.com/apps](https://cloud.digitalocean.com/apps) → connect this GitHub repo → pick the deployment branch. Build command: `npm run build`. Run command: `npm start`. HTTP port: `3000`.
+3. **Environment variables** — paste every value from `.env.example` into the app's environment configuration. Mark `*_SECRET`, `*_KEY`, and connection strings as encrypted. `NEXT_PUBLIC_APP_URL` should match the public URL of the deployment.
+4. **Database** — provision a managed Postgres (or paste a Neon `DATABASE_URL` + `DIRECT_URL`). Allow the app's outbound IP / VPC if your Postgres provider firewalls.
 5. **Configure Stripe webhook:** point a new endpoint at `https://<your-domain>/api/webhooks/stripe` subscribed to `checkout.session.completed`, `customer.subscription.*`, and `invoice.payment_failed`. Paste the signing secret into `STRIPE_WEBHOOK_SECRET`.
 6. **Configure Clerk webhook:** `https://<your-domain>/api/webhooks/clerk` subscribed to `user.*`, `organization.*`, `organizationMembership.*`. Paste the signing secret into `CLERK_WEBHOOK_SECRET`.
-7. **Cron:** `vercel.json` already registers `/api/cron/monitor` every 6 hours. Vercel calls it with `Authorization: Bearer $CRON_SECRET` — set `CRON_SECRET` in the project env.
-8. **Deploy.** The build runs `prisma generate && next build`. Migrations run separately: `pnpm db:deploy` against production `DIRECT_URL` from your machine or from CI before you promote.
+7. **Cron:** wire a scheduled job (DigitalOcean Functions on a 6-hour schedule, GitHub Actions, or any external cron) to GET `https://<your-domain>/api/cron/monitor` with `Authorization: Bearer $CRON_SECRET`. Set `CRON_SECRET` to a long random value in the app env.
+8. **Migrations:** App Platform doesn't run Prisma migrations as part of `npm run build`. Run `npm run db:deploy` against the production `DIRECT_URL` from your machine or a CI job before promoting a release that changes the schema.
 9. **Smoke test production** in order:
    - Sign up → Clerk org is auto-created → Account row appears (check Neon / Prisma Studio).
    - Create a brand → Level-Set fields auto-save → completeness meter moves.
@@ -151,7 +152,7 @@ app/
   (auth)/              Clerk sign-in / sign-up
   (dashboard)/         Authenticated app shell + six-phase screens + help + error/loading
   api/
-    cron/              Vercel Cron entrypoints
+    cron/              Scheduled-job entrypoints
     reports/           PDF download route
     track/             Open + click tracking pixels
     webhooks/          Clerk + Stripe signature-verified handlers
@@ -167,7 +168,6 @@ prisma/                schema.prisma + seed.ts
 scripts/               setup-stripe-products.ts
 docs/                  ROADMAP.md
 instrumentation.ts     Sentry request hook (no-op if @sentry/nextjs isn't installed)
-vercel.json            Cron schedule + per-route maxDuration
 ```
 
 ## License
