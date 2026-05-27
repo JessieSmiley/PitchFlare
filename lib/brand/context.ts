@@ -19,6 +19,7 @@ export type BrandContext = {
     description: string | null;
     website: string | null;
     category: string | null;
+    logoUrl: string | null;
   };
   voice: {
     toneAttributes: string[];
@@ -80,6 +81,7 @@ export async function getBrandContextForAI(
         description: true,
         website: true,
         category: true,
+        logoUrl: true,
       },
     }),
     db.brandVoice.findUnique({ where: { brandId } }),
@@ -121,6 +123,7 @@ export async function getBrandContextForAI(
       description: emptyToNull(brand.description),
       website: emptyToNull(brand.website),
       category: emptyToNull(brand.category),
+      logoUrl: emptyToNull(brand.logoUrl),
     },
     voice: {
       toneAttributes: voice?.toneAttributes ?? [],

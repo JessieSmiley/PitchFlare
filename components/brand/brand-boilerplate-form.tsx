@@ -13,7 +13,7 @@ export function BrandBoilerplateForm({
   initial: string;
 }) {
   const [value, setValue] = useState(initial);
-  const { state, errorMsg } = useAutoSave({
+  const { state, errorMsg, forceSaveNow } = useAutoSave({
     value,
     save: async (v) => updateDefaultBoilerplate({ brandId, text: v }),
   });
@@ -21,7 +21,18 @@ export function BrandBoilerplateForm({
   return (
     <Card
       title="Default boilerplate"
-      indicator={<SaveIndicator state={state} errorMsg={errorMsg} />}
+      indicator={
+        <div className="flex items-center gap-2">
+          <SaveIndicator state={state} errorMsg={errorMsg} />
+          <button
+            type="button"
+            onClick={() => void forceSaveNow()}
+            className="rounded-full border border-border px-3 py-1 text-xs hover:bg-accent"
+          >
+            Save now
+          </button>
+        </div>
+      }
     >
       <Field
         label="Boilerplate text"

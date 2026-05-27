@@ -207,6 +207,210 @@ export async function deleteBrandExample(
 }
 
 // =============================================================================
+// Messaging pillars (CRUD)
+// =============================================================================
+
+const PillarUpsertInput = z.object({
+  brandId: z.string().min(1),
+  id: z.string().optional(),
+  title: z.string().trim().min(1).max(120),
+  description: z.string().trim().max(1000).nullable().optional(),
+  talkingPoints: z.array(z.string().trim().min(1)).max(20).optional(),
+});
+
+export async function upsertPillar(
+  input: z.input<typeof PillarUpsertInput>,
+): Promise<ActionResult<{ id: string }>> {
+  const parsed = PillarUpsertInput.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+  await requireBrand(parsed.data.brandId);
+
+  const data = {
+    title: parsed.data.title,
+    description: parsed.data.description ?? null,
+    talkingPoints: parsed.data.talkingPoints ?? [],
+  };
+
+  const row = parsed.data.id
+    ? await db.messagingPillar.update({
+        where: { id: parsed.data.id },
+        data,
+        select: { id: true },
+      })
+    : await db.messagingPillar.create({
+        data: { ...data, brandId: parsed.data.brandId },
+        select: { id: true },
+      });
+
+  revalidatePath("/dashboard/level-set");
+  return { ok: true, id: row.id };
+}
+
+export async function deletePillar(input: {
+  brandId: string;
+  id: string;
+}): Promise<ActionResult> {
+  await requireBrand(input.brandId);
+  await db.messagingPillar.delete({ where: { id: input.id } });
+  revalidatePath("/dashboard/level-set");
+  return { ok: true };
+}
+
+// =============================================================================
+// Spokespeople (CRUD)
+// =============================================================================
+
+const SpokespersonUpsertInput = z.object({
+  brandId: z.string().min(1),
+  id: z.string().optional(),
+  name: z.string().trim().min(1).max(120),
+  title: z.string().trim().max(120).nullable().optional(),
+  bio: z.string().trim().max(2000).nullable().optional(),
+});
+
+export async function upsertSpokesperson(
+  input: z.input<typeof SpokespersonUpsertInput>,
+): Promise<ActionResult<{ id: string }>> {
+  const parsed = SpokespersonUpsertInput.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+  await requireBrand(parsed.data.brandId);
+
+  const data = {
+    name: parsed.data.name,
+    title: parsed.data.title ?? null,
+    bio: parsed.data.bio ?? null,
+  };
+
+  const row = parsed.data.id
+    ? await db.spokesperson.update({
+        where: { id: parsed.data.id },
+        data,
+        select: { id: true },
+      })
+    : await db.spokesperson.create({
+        data: { ...data, brandId: parsed.data.brandId },
+        select: { id: true },
+      });
+
+  revalidatePath("/dashboard/level-set");
+  return { ok: true, id: row.id };
+}
+
+export async function deleteSpokesperson(input: {
+  brandId: string;
+  id: string;
+}): Promise<ActionResult> {
+  await requireBrand(input.brandId);
+  await db.spokesperson.delete({ where: { id: input.id } });
+  revalidatePath("/dashboard/level-set");
+  return { ok: true };
+}
+
+// =============================================================================
+// Products (CRUD)
+// =============================================================================
+
+const ProductUpsertInput = z.object({
+  brandId: z.string().min(1),
+  id: z.string().optional(),
+  name: z.string().trim().min(1).max(120),
+  description: z.string().trim().max(1000).nullable().optional(),
+});
+
+export async function upsertProduct(
+  input: z.input<typeof ProductUpsertInput>,
+): Promise<ActionResult<{ id: string }>> {
+  const parsed = ProductUpsertInput.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+  await requireBrand(parsed.data.brandId);
+
+  const data = {
+    name: parsed.data.name,
+    description: parsed.data.description ?? null,
+  };
+
+  const row = parsed.data.id
+    ? await db.product.update({
+        where: { id: parsed.data.id },
+        data,
+        select: { id: true },
+      })
+    : await db.product.create({
+        data: { ...data, brandId: parsed.data.brandId },
+        select: { id: true },
+      });
+
+  revalidatePath("/dashboard/level-set");
+  return { ok: true, id: row.id };
+}
+
+export async function deleteProduct(input: {
+  brandId: string;
+  id: string;
+}): Promise<ActionResult> {
+  await requireBrand(input.brandId);
+  await db.product.delete({ where: { id: input.id } });
+  revalidatePath("/dashboard/level-set");
+  return { ok: true };
+}
+
+// =============================================================================
+// Competitors (CRUD)
+// =============================================================================
+
+const CompetitorUpsertInput = z.object({
+  brandId: z.string().min(1),
+  id: z.string().optional(),
+  name: z.string().trim().min(1).max(120),
+  domain: z.string().trim().max(200).nullable().optional(),
+});
+
+export async function upsertCompetitor(
+  input: z.input<typeof CompetitorUpsertInput>,
+): Promise<ActionResult<{ id: string }>> {
+  const parsed = CompetitorUpsertInput.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+  await requireBrand(parsed.data.brandId);
+
+  const data = {
+    name: parsed.data.name,
+    domain: parsed.data.domain ?? null,
+  };
+
+  const row = parsed.data.id
+    ? await db.competitor.update({
+        where: { id: parsed.data.id },
+        data,
+        select: { id: true },
+      })
+    : await db.competitor.create({
+        data: { ...data, brandId: parsed.data.brandId },
+        select: { id: true },
+      });
+
+  revalidatePath("/dashboard/level-set");
+  return { ok: true, id: row.id };
+}
+
+export async function deleteCompetitor(input: {
+  brandId: string;
+  id: string;
+}): Promise<ActionResult> {
+  await requireBrand(input.brandId);
+  await db.competitor.delete({ where: { id: input.id } });
+  revalidatePath("/dashboard/level-set");
+  return { ok: true };
+}
+
+// =============================================================================
 // Website voice analysis (AI)
 // =============================================================================
 
@@ -251,10 +455,10 @@ export async function analyzeWebsiteForVoice(
       error: `Could not fetch ${parsed.data.url}. ${e instanceof Error ? e.message : ""}`.trim(),
     };
   }
-  if (readableText.length < 200) {
+  if (readableText.length < 100) {
     return {
       ok: false,
-      error: "Couldn't extract enough text from that page. Try a different URL.",
+      error: `Couldn't extract enough text from that page (got ${readableText.length} chars). The site may be rendered with JavaScript — try a deeper page like /about.`,
     };
   }
 
@@ -332,16 +536,33 @@ export async function analyzeWebsiteForVoice(
     return { ok: true, voice: parsedOutput.data };
   } catch (err) {
     console.error("analyzeWebsiteForVoice failed:", err);
+    const msg = err instanceof Error ? err.message : String(err);
+    const lower = msg.toLowerCase();
+    if (
+      lower.includes("api key") ||
+      lower.includes("401") ||
+      lower.includes("403") ||
+      lower.includes("unauthorized")
+    ) {
+      return {
+        ok: false,
+        error: "AI analysis failed: the Anthropic API key is missing or invalid. Set ANTHROPIC_API_KEY and try again.",
+      };
+    }
     return {
       ok: false,
-      error: "AI analysis failed. Check your ANTHROPIC_API_KEY and try again.",
+      error: `AI analysis failed: ${msg}`,
     };
   }
 }
 
 async function fetchReadableText(url: string): Promise<string> {
   const res = await fetch(url, {
-    headers: { "User-Agent": "PitchFlare/1.0 (+https://pitchflare.com)" },
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (compatible; PitchFlare/1.0; +https://pitchflare.com)",
+      Accept: "text/html,application/xhtml+xml",
+    },
     redirect: "follow",
     signal: AbortSignal.timeout(10_000),
   });
@@ -349,8 +570,33 @@ async function fetchReadableText(url: string): Promise<string> {
   const html = await res.text();
 
   const $ = loadHtml(html);
-  // Strip the obvious noise.
+
+  // Pull metadata first — these survive even on JS-rendered SPAs because they
+  // sit in the static <head>.
+  const parts: string[] = [];
+  const title = $("title").first().text().trim();
+  if (title) parts.push(title);
+  const metaDesc = $('meta[name="description"]').attr("content")?.trim();
+  if (metaDesc) parts.push(metaDesc);
+  const ogDesc = $('meta[property="og:description"]').attr("content")?.trim();
+  if (ogDesc && ogDesc !== metaDesc) parts.push(ogDesc);
+  const ogTitle = $('meta[property="og:title"]').attr("content")?.trim();
+  if (ogTitle && ogTitle !== title) parts.push(ogTitle);
+
+  // Strip the obvious noise from the body.
   $("script, style, noscript, svg, iframe, nav, footer, header, form").remove();
-  const text = $("body").text().replace(/\s+/g, " ").trim();
+
+  // Prefer headings and paragraph text over the whole body — gives us cleaner
+  // signal on marketing sites that wrap everything in nested divs.
+  $("h1, h2, h3, p, li").each((_, el) => {
+    const t = $(el).text().replace(/\s+/g, " ").trim();
+    if (t.length > 0) parts.push(t);
+  });
+
+  let text = parts.join(" ").replace(/\s+/g, " ").trim();
+  if (text.length < 100) {
+    // Last resort: take whatever's in <body>.
+    text = $("body").text().replace(/\s+/g, " ").trim();
+  }
   return text;
 }
