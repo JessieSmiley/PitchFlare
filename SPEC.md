@@ -105,21 +105,21 @@ Prove the work.
 ### Confirmed defaults
 | Layer | Choice | Reasoning |
 |---|---|---|
-| Framework | **Next.js 15 (App Router)** | Best-in-class Vercel fit; RSC cuts client JS for data-heavy tables. |
+| Framework | **Next.js 15 (App Router)** | RSC cuts client JS for data-heavy tables; Node runtime hosts cleanly on App Platform. |
 | Language | **TypeScript** (strict) | Non-negotiable for a data model this large. |
 | UI | **shadcn/ui + Tailwind CSS** | Owned components, fast iteration, no vendor lock-in. |
 | ORM | **Prisma** | Type-safe queries; migrations; introspection. |
-| Database | **Postgres via Neon** | Serverless; branch-per-preview fits Vercel; cheaper than Supabase when you don't need their auth/storage layer (we're using Clerk). |
+| Database | **Postgres via Neon** | Serverless pricing; branch-per-preview enables ephemeral environments; cheaper than Supabase when you don't need their auth/storage layer (we're using Clerk). |
 | Auth | **Clerk** | Organizations map cleanly to our Account tenant; handles SSO/MFA; React components save weeks. |
 | AI | **Anthropic SDK** | Claude Sonnet 4.6 as default; Opus 4.7 for deep strategy (Ideation Station, status briefs); Haiku 4.5 for quick transforms (tone tweaks, subject lines). |
 
 ### Additional stack pieces (proposed)
 | Concern | Choice | Reasoning |
 |---|---|---|
-| Background jobs | **Inngest** | Durable execution, retries, fan-out — essential for send sequences, monitoring polls, report generation. First-class Vercel DX. |
+| Background jobs | **Inngest** | Durable execution, retries, fan-out — essential for send sequences, monitoring polls, report generation. Hosted SaaS, deploys-anywhere. |
 | Transactional email (app) | **Resend** + React Email | For app emails (invites, digests, notifications). |
 | Campaign email sending | **User OAuth (Gmail + Outlook) primary, Resend fallback** | Each user connects their own inbox via OAuth; pitches send from their real address so journalists see a human sender and replies sync into PitchFlare. Resend is used as a fallback when no inbox is connected (e.g. scheduled follow-ups after a user revokes access) and for automated sequence touches the user opts to send from a verified brand domain. |
-| File storage | **Vercel Blob** | Simplest for logos, clip PDFs, brand assets; swap to S3 later if needed. |
+| File storage | **DigitalOcean Spaces** (S3-compatible) | Logos, clip PDFs, brand assets; uses the AWS SDK so swapping to S3 proper is a config change. |
 | Billing | **Stripe** (Billing + Customer Portal) | Stripe Checkout for subscribe; Portal for plan changes/cancellation. |
 | Error tracking | **Sentry** | Standard. |
 | Product analytics | **PostHog** | Self-hostable later; session replay helpful in beta. |
@@ -128,7 +128,7 @@ Prove the work.
 | Social monitoring | **SparkToro + X/LinkedIn public APIs** | BYO-account for SparkToro. |
 | Contact enrichment | **Hunter.io, Apollo** (BYO-account) | Aligns with BYO partner model. |
 | Testing | **Vitest** + **Playwright** | Unit + E2E. |
-| Deployment | **Vercel** | Confirmed. |
+| Deployment | **DigitalOcean App Platform** | Container-based Next.js hosting with managed Postgres + Spaces in the same region. |
 
 ### AI model routing (Claude)
 - **Opus 4.7** — `claude-opus-4-7` — Ideation Station angle generation, pitch strategy memo, on-demand status briefs, sentiment rationale.
@@ -214,11 +214,11 @@ Contacts and outlets are *shared across the platform* (a global directory), but 
 
 ## 6. Deployment & Environments
 
-- **Vercel** (production + preview deploys from every PR)
-- **Neon** branch databases per preview deploy
+- **DigitalOcean App Platform** for production
+- **Neon** branch databases for ephemeral environments
 - **Inngest** cloud for background jobs
-- Environments: `development` (local), `preview` (per-branch), `production`
-- Secrets managed via Vercel + `.env.local` for dev
+- Environments: `development` (local), `staging` (optional), `production`
+- Secrets managed via App Platform's encrypted env vars + `.env.local` for dev
 
 ---
 

@@ -7,15 +7,16 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300; // 5 minutes — long enough for 50 active queries.
 
 /**
- * Vercel Cron entrypoint. Set up in vercel.json (Chunk J) with a 6-hour
- * schedule. Iterates active MonitoringQuery rows, fetches Google News RSS
- * per keyword, dedupes, writes Mention rows. Does NOT auto-promote to
- * CoverageClip — users triage via the Analyze UI. That keeps sentiment +
- * reach spend under user control.
+ * Cron entrypoint. Wire your scheduler (DigitalOcean Functions, GitHub
+ * Actions, an external cron service) to GET this route every 6 hours with
+ * an `Authorization: Bearer $CRON_SECRET` header. Iterates active
+ * MonitoringQuery rows, fetches Google News RSS per keyword, dedupes,
+ * writes Mention rows. Does NOT auto-promote to CoverageClip — users
+ * triage via the Analyze UI. That keeps sentiment + reach spend under user
+ * control.
  *
- * Auth: Vercel sets the `Authorization: Bearer $CRON_SECRET` header on
- * scheduled invocations. In dev you can call it directly without the
- * header.
+ * Auth: when CRON_SECRET is set the route requires the bearer header. In
+ * dev you can leave it unset and call the route directly.
  */
 export async function GET(req: NextRequest) {
   if (process.env.CRON_SECRET) {
