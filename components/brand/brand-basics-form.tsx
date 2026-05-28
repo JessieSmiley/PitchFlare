@@ -20,7 +20,7 @@ export function BrandBasicsForm({
   initial: Basics;
 }) {
   const [value, setValue] = useState<Basics>(initial);
-  const { state, errorMsg } = useAutoSave({
+  const { state, errorMsg, forceSaveNow } = useAutoSave({
     value,
     skip: (v) => v.name.trim().length === 0,
     save: async (v) =>
@@ -35,7 +35,21 @@ export function BrandBasicsForm({
   });
 
   return (
-    <Card title="Brand basics" indicator={<SaveIndicator state={state} errorMsg={errorMsg} />}>
+    <Card
+      title="Brand basics"
+      indicator={
+        <div className="flex items-center gap-2">
+          <SaveIndicator state={state} errorMsg={errorMsg} />
+          <button
+            type="button"
+            onClick={() => void forceSaveNow()}
+            className="rounded-full border border-border px-3 py-1 text-xs hover:bg-accent"
+          >
+            Save now
+          </button>
+        </div>
+      }
+    >
       <Field label="Brand name" required>
         <input
           value={value.name}

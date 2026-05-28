@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { analyzeWebsiteForVoice, updateBrandVoice } from "@/lib/brand/actions";
 import { Card, Field } from "./brand-basics-form";
 import { SaveIndicator, useAutoSave } from "./use-autosave";
@@ -24,10 +24,29 @@ export function BrandVoiceForm({
   initial: Voice;
 }) {
   const [value, setValue] = useState<Voice>(initial);
+  // Keep raw, user-typed strings for CSV fields so commas and trailing
+  // spaces survive between keystrokes. We parse to arrays only on save.
+  const [toneRaw, setToneRaw] = useState<string>(initial.toneAttributes.join(", "));
+  const [bannedRaw, setBannedRaw] = useState<string>(initial.bannedWords.join(", "));
   const [analyzing, startAnalyze] = useTransition();
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
 
-  const { state, errorMsg } = useAutoSave({
+  // When the parent updates the voice arrays (e.g. after AI analyze), sync
+  // the raw strings so the inputs reflect the new values.
+  const lastToneArr = useRef<string[]>(initial.toneAttributes);
+  const lastBannedArr = useRef<string[]>(initial.bannedWords);
+  useEffect(() => {
+    if (!sameArr(value.toneAttributes, lastToneArr.current)) {
+      lastToneArr.current = value.toneAttributes;
+      setToneRaw(value.toneAttributes.join(", "));
+    }
+    if (!sameArr(value.bannedWords, lastBannedArr.current)) {
+      lastBannedArr.current = value.bannedWords;
+      setBannedRaw(value.bannedWords.join(", "));
+    }
+  }, [value.toneAttributes, value.bannedWords]);
+
+  const { state, errorMsg, forceSaveNow } = useAutoSave({
     value,
     save: async (v) =>
       updateBrandVoice({
@@ -41,6 +60,21 @@ export function BrandVoiceForm({
       }),
   });
 
+  function commitToneRaw(raw: string) {
+    const next = splitCsv(raw);
+    if (!sameArr(next, value.toneAttributes)) {
+      lastToneArr.current = next;
+      setValue((v) => ({ ...v, toneAttributes: next }));
+    }
+  }
+  function commitBannedRaw(raw: string) {
+    const next = splitCsv(raw);
+    if (!sameArr(next, value.bannedWords)) {
+      lastBannedArr.current = next;
+      setValue((v) => ({ ...v, bannedWords: next }));
+    }
+  }
+
   function analyze() {
     if (!website) {
       setAnalyzeError("Add a website URL in Brand basics first.");
@@ -53,8 +87,6 @@ export function BrandVoiceForm({
         setAnalyzeError(res.error);
         return;
       }
-      // Merge AI suggestions into local state. User can still edit before
-      // debounced autosave fires.
       setValue((v) => ({
         ...v,
         toneAttributes:
@@ -74,7 +106,22 @@ export function BrandVoiceForm({
   return (
     <Card
       title="Brand voice"
-      indicator={<SaveIndicator state={state} errorMsg={errorMsg} />}
+      indicator={
+        <div className="flex items-center gap-2">
+          <SaveIndicator state={state} errorMsg={errorMsg} />
+          <button
+            type="button"
+            onClick={() => {
+              commitToneRaw(toneRaw);
+              commitBannedRaw(bannedRaw);
+              void forceSaveNow();
+            }}
+            className="rounded-full border border-border px-3 py-1 text-xs hover:bg-accent"
+          >
+            Save now
+          </button>
+        </div>
+      }
     >
       <div className="flex items-center justify-between">
         <p className="text-xs text-muted-foreground">
@@ -99,18 +146,17 @@ export function BrandVoiceForm({
         hint="Comma-separated single-word descriptors (e.g. confident, warm, direct)."
       >
         <input
-          value={value.toneAttributes.join(", ")}
-          onChange={(e) =>
-            setValue({
-              ...value,
-              toneAttributes: splitCsv(e.target.value),
-            })
-          }
+          value={toneRaw}
+          onChange={(e) => setToneRaw(e.target.value)}
+          onBlur={(e) => commitToneRaw(e.target.value)}
           className="w-full rounded-md border border-border bg-white px-3 py-2 text-sm"
         />
       </Field>
 
-      <Field label="What we always do">
+      <Field
+        label="What we always do"
+        hint="One or two sentences. e.g. Lead with customer outcomes, cite a number in the first paragraph, end with a clear ask."
+      >
         <textarea
           rows={2}
           value={value.alwaysDo}
@@ -119,7 +165,10 @@ export function BrandVoiceForm({
         />
       </Field>
 
-      <Field label="What we never do">
+      <Field
+        label="What we never do"
+        hint="One or two sentences. e.g. Never use hype superlatives ('revolutionary', 'game-changer'), never make claims we can't back with a source."
+      >
         <textarea
           rows={2}
           value={value.neverDo}
@@ -145,10 +194,9 @@ export function BrandVoiceForm({
         hint="Comma-separated words or phrases to avoid."
       >
         <input
-          value={value.bannedWords.join(", ")}
-          onChange={(e) =>
-            setValue({ ...value, bannedWords: splitCsv(e.target.value) })
-          }
+          value={bannedRaw}
+          onChange={(e) => setBannedRaw(e.target.value)}
+          onBlur={(e) => commitBannedRaw(e.target.value)}
           className="w-full rounded-md border border-border bg-white px-3 py-2 text-sm"
         />
       </Field>
@@ -173,4 +221,10 @@ function splitCsv(s: string): string[] {
     .split(",")
     .map((x) => x.trim())
     .filter(Boolean);
+}
+
+function sameArr(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
 }

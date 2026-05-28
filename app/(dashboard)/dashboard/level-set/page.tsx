@@ -5,6 +5,10 @@ import { BrandBasicsForm } from "@/components/brand/brand-basics-form";
 import { BrandVoiceForm } from "@/components/brand/brand-voice-form";
 import { BrandBoilerplateForm } from "@/components/brand/brand-boilerplate-form";
 import { BrandExamplesList } from "@/components/brand/brand-examples-list";
+import { BrandPillarsList } from "@/components/brand/brand-pillars-list";
+import { BrandSpokespeopleList } from "@/components/brand/brand-spokespeople-list";
+import { BrandProductsList } from "@/components/brand/brand-products-list";
+import { BrandCompetitorsList } from "@/components/brand/brand-competitors-list";
 import { CompletionMeter } from "@/components/brand/completion-meter";
 import { db } from "@/lib/db";
 
@@ -19,20 +23,46 @@ export default async function LevelSetPage() {
   }
   const brandId = tenant.brand.id;
 
-  const [ctx, examples] = await Promise.all([
-    getBrandContextForAI(brandId),
-    db.brandExample.findMany({
-      where: { brandId },
-      orderBy: { createdAt: "asc" },
-      select: {
-        id: true,
-        title: true,
-        url: true,
-        description: true,
-        emulate: true,
-      },
-    }),
-  ]);
+  const [ctx, examples, pillars, spokespeople, products, competitors] =
+    await Promise.all([
+      getBrandContextForAI(brandId),
+      db.brandExample.findMany({
+        where: { brandId },
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          title: true,
+          url: true,
+          description: true,
+          emulate: true,
+        },
+      }),
+      db.messagingPillar.findMany({
+        where: { brandId },
+        orderBy: [{ order: "asc" }, { createdAt: "asc" }],
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          talkingPoints: true,
+        },
+      }),
+      db.spokesperson.findMany({
+        where: { brandId },
+        orderBy: { createdAt: "asc" },
+        select: { id: true, name: true, title: true, bio: true },
+      }),
+      db.product.findMany({
+        where: { brandId },
+        orderBy: { createdAt: "asc" },
+        select: { id: true, name: true, description: true },
+      }),
+      db.competitor.findMany({
+        where: { brandId },
+        orderBy: { createdAt: "asc" },
+        select: { id: true, name: true, domain: true },
+      }),
+    ]);
 
   const completion = computeBrandCompletion(ctx);
 
@@ -55,7 +85,7 @@ export default async function LevelSetPage() {
           description: ctx.brand.description ?? "",
           website: ctx.brand.website ?? "",
           category: ctx.brand.category ?? "",
-          logoUrl: "",
+          logoUrl: ctx.brand.logoUrl ?? "",
         }}
       />
 
@@ -76,6 +106,11 @@ export default async function LevelSetPage() {
         brandId={brandId}
         initial={ctx.defaultBoilerplate ?? ""}
       />
+
+      <BrandPillarsList brandId={brandId} initial={pillars} />
+      <BrandSpokespeopleList brandId={brandId} initial={spokespeople} />
+      <BrandProductsList brandId={brandId} initial={products} />
+      <BrandCompetitorsList brandId={brandId} initial={competitors} />
 
       <BrandExamplesList brandId={brandId} initial={examples} />
     </div>
