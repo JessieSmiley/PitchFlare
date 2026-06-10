@@ -211,9 +211,10 @@ export async function generateAngles(
     return { ok: true, angles: out.data.angles };
   } catch (err) {
     console.error("generateAngles failed:", err);
+    const detail = err instanceof Error ? err.message : String(err);
     return {
       ok: false,
-      error: "Ideation failed. Check ANTHROPIC_API_KEY and try again.",
+      error: `Ideation failed: ${detail}`,
     };
   }
 }
@@ -347,6 +348,156 @@ export async function remixAngle(
     return { ok: true, angle: remixed.data };
   } catch (err) {
     console.error("remixAngle failed:", err);
-    return { ok: false, error: "Remix failed. Try again." };
+    const detail = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: `Remix failed: ${detail}` };
+  }
+}
+
+const GenerateCampaignBriefInput = z.object({
+  campaignId: z.string().min(1),
+  useOpus: z.boolean().default(false),
+});
+
+const CampaignBriefSchema = z.object({
+  positioning: z.string(),
+  keyNarratives: z.array(z.string()).min(1).max(5),
+  audienceSnapshot: z.string(),
+  competitiveContext: z.string(),
+  risks: z.array(z.string()).min(0).max(5),
+  recommendedNextSteps: z.array(z.string()).min(1).max(5),
+});
+export type CampaignBrief = z.infer<typeof CampaignBriefSchema>;
+
+/**
+ * Generate a synthesized campaign brief: the AI's read of the campaign
+ * fields + brand context, presented back to the user before they kick off
+ * ideation. Persisted on `Campaign` so it survives page reloads.
+ */
+export async function generateCampaignBrief(
+  input: z.input<typeof GenerateCampaignBriefInput>,
+): Promise<ActionResult<{ brief: CampaignBrief; generatedAt: string }>> {
+  const parsed = GenerateCampaignBriefInput.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  const tenant = await requireTenant();
+  const campaign = await db.campaign.findFirst({
+    where: {
+      id: parsed.data.campaignId,
+      brand: { accountId: tenant.account.id },
+    },
+  });
+  if (!campaign) return { ok: false, error: "Campaign not found." };
+
+  const brandCtx = await getBrandContextForAI(campaign.brandId);
+  const tier: ModelTier = parsed.data.useOpus ? "opus" : "sonnet";
+  const model = MODELS[tier];
+
+  const systemBlocks = [
+    brandContextAsPromptBlock(brandCtx),
+    {
+      type: "text" as const,
+      text: [
+        "You are a senior PR strategist. Read the brand context above and",
+        "the campaign parameters below, then produce a tight campaign brief",
+        "the user can scan in 30 seconds. The brief is what we'll use to",
+        "anchor the rest of the campaign. Be concrete, opinionated, and",
+        "specific to this brand — no generic platitudes.",
+      ].join(" "),
+    },
+  ];
+
+  const campaignBlock = [
+    `CAMPAIGN:`,
+    `Title: ${campaign.title}`,
+    campaign.objective ? `Topic / announcement: ${campaign.objective}` : null,
+    campaign.goalType ? `Primary goal: ${campaign.goalType}` : null,
+    campaign.toneTags.length
+      ? `Tone tags: ${campaign.toneTags.join(", ")}`
+      : null,
+    campaign.budgetRange ? `Budget range: ${campaign.budgetRange}` : null,
+    campaign.marketSentimentNotes
+      ? `Market sentiment notes:\n${campaign.marketSentimentNotes}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  try {
+    const response = await anthropic.messages.parse({
+      model,
+      max_tokens: 2048,
+      system: systemBlocks,
+      messages: [{ role: "user", content: campaignBlock }],
+      output_config: {
+        format: {
+          type: "json_schema",
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              positioning: { type: "string" },
+              keyNarratives: {
+                type: "array",
+                items: { type: "string" },
+              },
+              audienceSnapshot: { type: "string" },
+              competitiveContext: { type: "string" },
+              risks: {
+                type: "array",
+                items: { type: "string" },
+              },
+              recommendedNextSteps: {
+                type: "array",
+                items: { type: "string" },
+              },
+            },
+            required: [
+              "positioning",
+              "keyNarratives",
+              "audienceSnapshot",
+              "competitiveContext",
+              "risks",
+              "recommendedNextSteps",
+            ],
+          },
+        },
+      },
+    });
+
+    await logAIUsage({
+      accountId: tenant.account.id,
+      brandId: campaign.brandId,
+      feature: "strategize.campaign_brief",
+      model,
+      usage: response.usage,
+    });
+
+    const parsedBrief = CampaignBriefSchema.safeParse(response.parsed_output);
+    if (!parsedBrief.success) {
+      return { ok: false, error: "AI response didn't match expected shape." };
+    }
+
+    const generatedAt = new Date();
+    await db.campaign.update({
+      where: { id: campaign.id },
+      data: {
+        briefSummary: JSON.stringify(parsedBrief.data),
+        briefGeneratedAt: generatedAt,
+        briefModelUsed: model,
+      },
+    });
+
+    revalidatePath("/dashboard/strategize/ideation");
+    return {
+      ok: true,
+      brief: parsedBrief.data,
+      generatedAt: generatedAt.toISOString(),
+    };
+  } catch (err) {
+    console.error("generateCampaignBrief failed:", err);
+    const detail = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: `Brief generation failed: ${detail}` };
   }
 }

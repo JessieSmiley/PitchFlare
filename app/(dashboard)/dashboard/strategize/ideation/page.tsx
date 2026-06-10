@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { CampaignForm } from "@/components/strategize/campaign-form";
 import { IdeationCanvas } from "@/components/strategize/ideation-canvas";
 import { CampaignSwitcher } from "@/components/strategize/campaign-switcher";
+import { CampaignBriefCard } from "@/components/strategize/campaign-brief";
+import type { CampaignBrief } from "@/lib/campaigns/ai";
 
 export const dynamic = "force-dynamic";
 
@@ -90,10 +92,25 @@ export default async function IdeationPage({
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[2fr_3fr]">
-        <CampaignForm
-          campaignId={campaign?.id}
-          initial={initialCampaignValue}
-        />
+        <div className="flex flex-col gap-6">
+          <CampaignForm
+            campaignId={campaign?.id}
+            initial={initialCampaignValue}
+          />
+
+          {campaign && (
+            <CampaignBriefCard
+              campaignId={campaign.id}
+              initialBrief={parseBrief(campaign.briefSummary)}
+              initialGeneratedAt={
+                campaign.briefGeneratedAt
+                  ? campaign.briefGeneratedAt.toISOString()
+                  : null
+              }
+              initialModelUsed={campaign.briefModelUsed}
+            />
+          )}
+        </div>
 
         {campaign ? (
           <IdeationCanvas
@@ -109,4 +126,13 @@ export default async function IdeationPage({
       </div>
     </div>
   );
+}
+
+function parseBrief(raw: string | null): CampaignBrief | null {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as CampaignBrief;
+  } catch {
+    return null;
+  }
 }
