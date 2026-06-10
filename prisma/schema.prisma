@@ -511,6 +511,9 @@ model Campaign {
   launchDate           DateTime?
   embargoDate          DateTime?
   marketSentimentNotes String?
+  briefSummary         String?
+  briefGeneratedAt     DateTime?
+  briefModelUsed       String?
   phase                CampaignPhase  @default(LEVEL_SET)
   status               CampaignStatus @default(DRAFT)
   primaryAngleId       String?        @unique
