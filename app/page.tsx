@@ -109,8 +109,17 @@ export default function LandingPage() {
               </p>
             </div>
 
-            {/* Product mock card */}
-            <div className="rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-200/60">
+            {/* Brand logo + product mock card */}
+            <div className="relative">
+              <Image
+                src="/logo.png"
+                alt="PitchFlare — Ignite your strategy. From pitch to placement."
+                width={400}
+                height={404}
+                priority
+                className="mx-auto w-56 sm:w-64 lg:absolute lg:-top-10 lg:right-0 lg:mx-0 lg:w-[24rem]"
+              />
+              <div className="relative z-10 -mt-10 rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-200/60 lg:mt-52 lg:mr-28">
               <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
                 <div>
                   <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
@@ -157,6 +166,7 @@ export default function LandingPage() {
                 <p className="text-sm font-bold text-brand-navy">
                   34% <span className="font-medium text-emerald-600">▲ 6pts</span>
                 </p>
+              </div>
               </div>
             </div>
           </div>
@@ -412,11 +422,11 @@ export default function LandingPage() {
         <section className="bg-gradient-to-br from-brand-navy via-brand-navy to-brand-ink text-white">
           <div className="mx-auto max-w-4xl px-6 py-20 text-center">
             <Image
-              src="/logo-mark.png"
-              alt=""
-              width={56}
-              height={56}
-              className="mx-auto mb-6 h-14 w-14"
+              src="/logo.png"
+              alt="PitchFlare — Ignite your strategy. From pitch to placement."
+              width={192}
+              height={194}
+              className="mx-auto mb-8 w-48"
             />
             <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
               See PitchFlare on your own campaigns.
