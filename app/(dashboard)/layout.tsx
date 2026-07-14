@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
 import { getTenant, listAccessibleBrands } from "@/lib/auth/tenant";
@@ -24,23 +25,30 @@ export default async function DashboardLayout({
   const brands = await listAccessibleBrands(tenant.account.id, tenant.user.id);
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-screen bg-brand-mist">
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-brand-pink focus:px-3 focus:py-2 focus:text-sm focus:text-white"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-brand-pink focus:px-3 focus:py-2 focus:text-sm focus:text-white"
       >
         Skip to main content
       </a>
       <KeyboardShortcuts />
-      <aside className="w-[220px] shrink-0 border-r border-border bg-white">
-        <div className="flex items-center gap-2 px-4 py-4">
-          <div className="h-7 w-7 rounded-full bg-brand-pink" aria-hidden />
-          <span className="font-display text-xl text-brand-navy">
+      <aside className="flex w-[230px] shrink-0 flex-col border-r border-slate-200 bg-white">
+        <Link href="/dashboard" className="flex items-center gap-2.5 px-4 py-4">
+          <Image
+            src="/logo-mark.png"
+            alt=""
+            width={32}
+            height={32}
+            className="h-8 w-8"
+            priority
+          />
+          <span className="text-lg font-bold tracking-tight text-brand-navy">
             PitchFlare
           </span>
-        </div>
+        </Link>
 
-        <nav className="flex flex-col gap-1 px-2 py-2 text-sm">
+        <nav className="flex flex-col gap-0.5 px-2 py-2 text-sm">
           <NavItem href="/dashboard/level-set" n={1} label="Level-Set" />
           <NavItem href="/dashboard/strategize/ideation" n={2} label="Strategize" />
           <NavSub href="/dashboard/strategize/ideation" label="Ideation Station" />
@@ -63,24 +71,30 @@ export default async function DashboardLayout({
           <NavSub href="/dashboard/report/status" label="Status Reports" />
         </nav>
 
-        <div className="mt-auto border-t border-border px-2 py-3">
+        <div className="mt-auto border-t border-slate-200 px-2 py-3">
           <Link
             href="/dashboard/settings/billing"
-            className="block rounded-md px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-brand-navy"
+            className="block rounded-lg px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-brand-mist hover:text-brand-navy"
           >
             Billing
           </Link>
           <Link
             href="/dashboard/settings/integrations"
-            className="block rounded-md px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-brand-navy"
+            className="block rounded-lg px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-brand-mist hover:text-brand-navy"
           >
             Integrations
+          </Link>
+          <Link
+            href="/dashboard/help"
+            className="block rounded-lg px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-brand-mist hover:text-brand-navy"
+          >
+            Help
           </Link>
         </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-[52px] items-center justify-between border-b border-border bg-white px-6">
+        <header className="flex h-14 items-center justify-between border-b border-slate-200 bg-white px-6">
           <BrandSwitcher
             current={
               tenant.brand
@@ -100,7 +114,7 @@ export default async function DashboardLayout({
           <div className="flex items-center gap-3">
             <Link
               href="/dashboard/draft/pitches"
-              className="rounded-full bg-brand-pink px-4 py-1.5 text-sm text-white hover:opacity-90"
+              className="rounded-lg bg-brand-pink px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-brand-pink-deep"
             >
               ✦ Write pitch
             </Link>
@@ -119,12 +133,12 @@ function NavItem({ href, n, label }: { href: string; n: number; label: string })
   return (
     <Link
       href={href}
-      className="flex items-center gap-3 rounded-md px-3 py-2 text-brand-navy hover:bg-muted"
+      className="mt-1 flex items-center gap-3 rounded-lg px-3 py-2 text-brand-navy transition-colors hover:bg-brand-mist first:mt-0"
     >
-      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-accent text-xs font-semibold text-accent-foreground">
+      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-navy text-xs font-bold text-white">
         {n}
       </span>
-      <span className="font-medium">{label}</span>
+      <span className="font-semibold">{label}</span>
     </Link>
   );
 }
@@ -133,7 +147,7 @@ function NavSub({ href, label }: { href: string; label: string }) {
   return (
     <Link
       href={href}
-      className="ml-9 rounded-md px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-brand-navy"
+      className="ml-9 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-500 transition-colors hover:bg-brand-mist hover:text-brand-navy"
     >
       {label}
     </Link>

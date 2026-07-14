@@ -67,7 +67,7 @@ export default async function OnboardingBrandPage() {
 
         <button
           type="submit"
-          className="w-full rounded-full bg-brand-pink px-4 py-2.5 text-sm font-medium text-white hover:opacity-90"
+          className="w-full rounded-lg bg-brand-pink px-4 py-2.5 text-sm font-medium text-white hover:opacity-90"
         >
           Create brand and continue →
         </button>

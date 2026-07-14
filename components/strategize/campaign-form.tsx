@@ -190,7 +190,7 @@ export function CampaignForm({
           type="button"
           onClick={handleCreate}
           disabled={creating || !value.title.trim()}
-          className="mt-2 w-full rounded-full bg-brand-pink px-4 py-2 text-sm text-white disabled:opacity-60"
+          className="mt-2 w-full rounded-lg bg-brand-pink px-4 py-2 text-sm text-white disabled:opacity-60"
         >
           {creating ? "Creating…" : "Create campaign →"}
         </button>

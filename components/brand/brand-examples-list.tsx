@@ -185,7 +185,7 @@ export function BrandExamplesList({
                 type="button"
                 onClick={addExample}
                 disabled={isPending || !draft.title.trim()}
-                className="rounded-full bg-brand-pink px-3 py-1 text-xs text-white disabled:opacity-60"
+                className="rounded-lg bg-brand-pink px-3 py-1 text-xs text-white disabled:opacity-60"
               >
                 Add
               </button>

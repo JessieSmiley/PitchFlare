@@ -55,7 +55,7 @@ export function TargetsShell({
               type="button"
               onClick={buildTargetList}
               disabled={buildPending || !primaryAngleTitle}
-              className="rounded-full bg-brand-pink px-4 py-2 text-sm text-white disabled:opacity-60"
+              className="rounded-lg bg-brand-pink px-4 py-2 text-sm text-white disabled:opacity-60"
             >
               {buildPending ? "Scoring…" : "✦ Find contacts for this angle"}
             </button>

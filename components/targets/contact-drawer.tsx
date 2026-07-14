@@ -184,7 +184,7 @@ export function ContactDrawer({
             type="button"
             onClick={() => runEnrich("HUNTER")}
             disabled={enriching}
-            className="rounded-full bg-brand-pink px-3 py-1 text-xs text-white hover:opacity-90 disabled:opacity-60"
+            className="rounded-lg bg-brand-pink px-3 py-1 text-xs text-white hover:opacity-90 disabled:opacity-60"
           >
             {enriching ? "Enriching…" : "✦ Enrich with Hunter"}
           </button>

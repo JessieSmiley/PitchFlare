@@ -103,7 +103,7 @@ export function PitchComposer({
             type="button"
             onClick={runBatch}
             disabled={batchPending || rows.every((r) => r.status !== "NONE")}
-            className="rounded-full bg-brand-pink px-4 py-2 text-sm text-white disabled:opacity-60"
+            className="rounded-lg bg-brand-pink px-4 py-2 text-sm text-white disabled:opacity-60"
           >
             {batchPending ? "Generating…" : "✦ Generate all drafts"}
           </button>
@@ -326,7 +326,7 @@ function PitchEditor({
               type="button"
               onClick={generate}
               disabled={generating || locked}
-              className="rounded-full bg-brand-pink px-3 py-1 text-xs text-white disabled:opacity-60"
+              className="rounded-lg bg-brand-pink px-3 py-1 text-xs text-white disabled:opacity-60"
             >
               {generating
                 ? "Generating…"

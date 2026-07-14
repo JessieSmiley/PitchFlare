@@ -147,7 +147,7 @@ function TriggerCard({
         type="button"
         onClick={onClick}
         disabled={pending || disabled}
-        className="mt-3 w-full rounded-full bg-brand-pink px-3 py-1.5 text-xs text-white disabled:opacity-60"
+        className="mt-3 w-full rounded-lg bg-brand-pink px-3 py-1.5 text-xs text-white disabled:opacity-60"
       >
         {pending ? "Generating…" : `✦ Generate ${title.toLowerCase()}`}
       </button>
