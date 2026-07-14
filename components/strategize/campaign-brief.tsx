@@ -69,7 +69,7 @@ export function CampaignBriefCard({
         type="button"
         onClick={handleGenerate}
         disabled={generating}
-        className="mt-3 w-full rounded-full bg-brand-pink px-4 py-2 text-sm text-white hover:opacity-90 disabled:opacity-60"
+        className="mt-3 w-full rounded-lg bg-brand-pink px-4 py-2 text-sm text-white hover:opacity-90 disabled:opacity-60"
       >
         {generating
           ? "Generating brief…"

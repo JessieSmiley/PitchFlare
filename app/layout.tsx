@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { ClerkProvider } from "@clerk/nextjs";
-import { Inter, Playfair_Display } from "next/font/google";
+import { Inter } from "next/font/google";
 import { PosthogProvider } from "@/components/analytics/posthog-provider";
 import "./globals.css";
 
@@ -11,16 +11,10 @@ const inter = Inter({
   display: "swap",
 });
 
-const playfair = Playfair_Display({
-  subsets: ["latin"],
-  variable: "--font-display",
-  display: "swap",
-});
-
 export const metadata: Metadata = {
-  title: "PitchFlare — AI-native PR",
+  title: "PitchFlare — AI-native PR, from pitch to placement",
   description:
-    "AI-native PR and media intelligence for freelance consultants and boutique agencies.",
+    "PR strategy, pitching, send tracking, coverage analytics, and client-ready reports in one AI platform for freelance consultants and boutique agencies.",
 };
 
 export default function RootLayout({
@@ -30,7 +24,7 @@ export default function RootLayout({
 }) {
   return (
     <ClerkProvider>
-      <html lang="en" className={`${inter.variable} ${playfair.variable}`}>
+      <html lang="en" className={inter.variable}>
         <body className="min-h-screen bg-background font-sans antialiased">
           <Suspense fallback={null}>
             <PosthogProvider>{children}</PosthogProvider>

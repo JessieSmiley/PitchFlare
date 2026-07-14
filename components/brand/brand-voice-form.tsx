@@ -132,7 +132,7 @@ export function BrandVoiceForm({
           type="button"
           onClick={analyze}
           disabled={analyzing}
-          className="rounded-full bg-brand-pink px-3 py-1 text-xs text-white hover:opacity-90 disabled:opacity-60"
+          className="rounded-lg bg-brand-pink px-3 py-1 text-xs text-white hover:opacity-90 disabled:opacity-60"
         >
           {analyzing ? "Analyzing…" : "✦ Analyze my website"}
         </button>

@@ -151,7 +151,7 @@ export function AddContactForm() {
             type="button"
             onClick={submitManual}
             disabled={busy || !name.trim()}
-            className="w-full rounded-full bg-brand-pink px-4 py-2 text-sm text-white disabled:opacity-60"
+            className="w-full rounded-lg bg-brand-pink px-4 py-2 text-sm text-white disabled:opacity-60"
           >
             {busy ? "Adding…" : "Add contact"}
           </button>
@@ -187,7 +187,7 @@ export function AddContactForm() {
             type="button"
             onClick={submitImport}
             disabled={busy || !url.trim()}
-            className="w-full rounded-full bg-brand-pink px-4 py-2 text-sm text-white disabled:opacity-60"
+            className="w-full rounded-lg bg-brand-pink px-4 py-2 text-sm text-white disabled:opacity-60"
           >
             {busy ? "Scraping…" : "Import"}
           </button>

@@ -96,7 +96,7 @@ export function IdeationCanvas({
           type="button"
           onClick={handleGenerate}
           disabled={generating}
-          className="mt-3 w-full rounded-full bg-brand-pink px-4 py-2 text-sm text-white hover:opacity-90 disabled:opacity-60"
+          className="mt-3 w-full rounded-lg bg-brand-pink px-4 py-2 text-sm text-white hover:opacity-90 disabled:opacity-60"
         >
           {generating ? "Generating angles…" : "✦ Generate pitch angles"}
         </button>
@@ -222,7 +222,7 @@ function AngleCard({
           type="button"
           onClick={onUse}
           disabled={isPrimary}
-          className="rounded-full bg-brand-pink px-3 py-1 text-xs text-white disabled:opacity-50"
+          className="rounded-lg bg-brand-pink px-3 py-1 text-xs text-white disabled:opacity-50"
         >
           {isPrimary ? "✓ Using this angle" : "Use this angle"}
         </button>
@@ -264,7 +264,7 @@ function AngleCard({
               type="button"
               onClick={handleRemix}
               disabled={remixing || !remixText.trim()}
-              className="rounded-full bg-brand-pink px-3 py-1 text-xs text-white disabled:opacity-60"
+              className="rounded-lg bg-brand-pink px-3 py-1 text-xs text-white disabled:opacity-60"
             >
               {remixing ? "Remixing…" : "Remix"}
             </button>

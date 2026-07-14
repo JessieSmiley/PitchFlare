@@ -95,7 +95,7 @@ export function SendQueue({ rows }: { rows: QueueRow[] }) {
               type="button"
               onClick={send}
               disabled={sending || selected.size === 0}
-              className="rounded-full bg-brand-pink px-4 py-2 text-sm text-white disabled:opacity-60"
+              className="rounded-lg bg-brand-pink px-4 py-2 text-sm text-white disabled:opacity-60"
             >
               {sending
                 ? "Sending…"

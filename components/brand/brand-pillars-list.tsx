@@ -147,7 +147,7 @@ export function BrandPillarsList({
                 type="button"
                 onClick={() => saveRow(p)}
                 disabled={isPending || !p.title.trim()}
-                className="rounded-full bg-brand-pink px-3 py-1 text-xs text-white disabled:opacity-60"
+                className="rounded-lg bg-brand-pink px-3 py-1 text-xs text-white disabled:opacity-60"
               >
                 Save
               </button>
@@ -204,7 +204,7 @@ export function BrandPillarsList({
               type="button"
               onClick={addPillar}
               disabled={isPending || !draft.title.trim()}
-              className="rounded-full bg-brand-pink px-3 py-1 text-xs text-white disabled:opacity-60"
+              className="rounded-lg bg-brand-pink px-3 py-1 text-xs text-white disabled:opacity-60"
             >
               Add pillar
             </button>
