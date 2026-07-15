@@ -38,8 +38,18 @@ const CreateCampaignInput = z.object({
     .optional(),
   toneTags: z.array(z.string().trim()).max(12).optional(),
   budgetRange: z.string().trim().optional().nullable(),
-  timelineStart: z.string().datetime().optional().nullable(),
-  timelineEnd: z.string().datetime().optional().nullable(),
+  // Accepts YYYY-MM-DD (from <input type="date">) or a full ISO datetime.
+  timelineStart: z
+    .string()
+    .refine((s) => !Number.isNaN(Date.parse(s)), "Invalid date")
+    .optional()
+    .nullable(),
+  timelineEnd: z
+    .string()
+    .refine((s) => !Number.isNaN(Date.parse(s)), "Invalid date")
+    .optional()
+    .nullable(),
+  marketSentimentTags: z.array(z.string().trim()).max(12).optional(),
   marketSentimentNotes: z.string().trim().max(2000).optional().nullable(),
 });
 
@@ -68,6 +78,7 @@ export async function createCampaign(
       timelineEnd: parsed.data.timelineEnd
         ? new Date(parsed.data.timelineEnd)
         : null,
+      marketSentimentTags: parsed.data.marketSentimentTags ?? [],
       marketSentimentNotes: parsed.data.marketSentimentNotes ?? null,
       phase: "STRATEGIZE",
       status: "DRAFT",
@@ -93,12 +104,23 @@ export async function updateCampaign(
 
   const { id, timelineStart, timelineEnd, ...rest } = parsed.data;
 
+  // `undefined` = field omitted, leave unchanged; `null` = explicitly cleared.
   await db.campaign.update({
     where: { id },
     data: {
       ...rest,
-      timelineStart: timelineStart ? new Date(timelineStart) : undefined,
-      timelineEnd: timelineEnd ? new Date(timelineEnd) : undefined,
+      timelineStart:
+        timelineStart === undefined
+          ? undefined
+          : timelineStart
+            ? new Date(timelineStart)
+            : null,
+      timelineEnd:
+        timelineEnd === undefined
+          ? undefined
+          : timelineEnd
+            ? new Date(timelineEnd)
+            : null,
     },
   });
 

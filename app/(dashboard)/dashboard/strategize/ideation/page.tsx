@@ -71,6 +71,13 @@ export default async function IdeationPage({
       | "$5k-$25k"
       | "$25k-$100k"
       | "$100k+",
+    timelineStart: campaign?.timelineStart
+      ? campaign.timelineStart.toISOString().slice(0, 10)
+      : "",
+    timelineEnd: campaign?.timelineEnd
+      ? campaign.timelineEnd.toISOString().slice(0, 10)
+      : "",
+    marketSentimentTags: campaign?.marketSentimentTags ?? [],
     marketSentimentNotes: campaign?.marketSentimentNotes ?? "",
   };
 

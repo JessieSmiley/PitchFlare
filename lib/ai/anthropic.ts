@@ -31,3 +31,29 @@ export const MODELS = {
 } as const;
 
 export type ModelTier = keyof typeof MODELS;
+
+/**
+ * Translate an Anthropic API failure into a message safe to show end users.
+ * Raw API errors are JSON dumps with request IDs — useless to a PR
+ * consultant and they leak infrastructure detail.
+ */
+export function describeAIError(err: unknown): string {
+  const raw = err instanceof Error ? err.message : String(err);
+
+  if (err instanceof Anthropic.APIError) {
+    if (raw.includes("credit balance is too low")) {
+      return "PitchFlare's AI provider account is out of credits. An administrator needs to top up API credits in the Anthropic Console (Plans & Billing) before AI features will work again.";
+    }
+    if (err.status === 401 || err.status === 403) {
+      return "PitchFlare's AI provider API key was rejected. An administrator needs to check the ANTHROPIC_API_KEY configuration.";
+    }
+    if (err.status === 429) {
+      return "The AI service is rate-limited right now. Wait a minute and try again.";
+    }
+    if (err.status !== undefined && err.status >= 500) {
+      return "The AI service is temporarily unavailable. Try again in a few moments.";
+    }
+  }
+
+  return raw;
+}
