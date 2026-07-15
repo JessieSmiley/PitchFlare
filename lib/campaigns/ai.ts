@@ -4,7 +4,12 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireTenant } from "@/lib/auth/tenant";
-import { anthropic, MODELS, type ModelTier } from "@/lib/ai/anthropic";
+import {
+  anthropic,
+  describeAIError,
+  MODELS,
+  type ModelTier,
+} from "@/lib/ai/anthropic";
 import { logAIUsage } from "@/lib/ai/log";
 import {
   brandContextAsPromptBlock,
@@ -14,6 +19,15 @@ import {
 type ActionResult<T = unknown> =
   | ({ ok: true } & T)
   | { ok: false; error: string };
+
+function formatTimeline(start: Date | null, end: Date | null): string | null {
+  if (!start && !end) return null;
+  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+  if (start && end) return `Timeline: ${fmt(start)} to ${fmt(end)}`;
+  return start
+    ? `Timeline: starts ${fmt(start)}`
+    : `Timeline: ends ${fmt(end!)}`;
+}
 
 const GeneratedAngleSchema = z.object({
   title: z.string(),
@@ -100,8 +114,12 @@ export async function generateAngles(
       ? `Tone tags: ${campaign.toneTags.join(", ")}`
       : null,
     campaign.budgetRange ? `Budget: ${campaign.budgetRange}` : null,
+    formatTimeline(campaign.timelineStart, campaign.timelineEnd),
+    campaign.marketSentimentTags.length
+      ? `Market sentiment: ${campaign.marketSentimentTags.join(", ")}`
+      : null,
     campaign.marketSentimentNotes
-      ? `Market sentiment:\n${campaign.marketSentimentNotes}`
+      ? `Market sentiment notes:\n${campaign.marketSentimentNotes}`
       : null,
     parsed.data.steer ? `User steering: ${parsed.data.steer}` : null,
   ]
@@ -211,10 +229,9 @@ export async function generateAngles(
     return { ok: true, angles: out.data.angles };
   } catch (err) {
     console.error("generateAngles failed:", err);
-    const detail = err instanceof Error ? err.message : String(err);
     return {
       ok: false,
-      error: `Ideation failed: ${detail}`,
+      error: `Ideation failed: ${describeAIError(err)}`,
     };
   }
 }
@@ -348,8 +365,7 @@ export async function remixAngle(
     return { ok: true, angle: remixed.data };
   } catch (err) {
     console.error("remixAngle failed:", err);
-    const detail = err instanceof Error ? err.message : String(err);
-    return { ok: false, error: `Remix failed: ${detail}` };
+    return { ok: false, error: `Remix failed: ${describeAIError(err)}` };
   }
 }
 
@@ -417,6 +433,10 @@ export async function generateCampaignBrief(
       ? `Tone tags: ${campaign.toneTags.join(", ")}`
       : null,
     campaign.budgetRange ? `Budget range: ${campaign.budgetRange}` : null,
+    formatTimeline(campaign.timelineStart, campaign.timelineEnd),
+    campaign.marketSentimentTags.length
+      ? `Market sentiment: ${campaign.marketSentimentTags.join(", ")}`
+      : null,
     campaign.marketSentimentNotes
       ? `Market sentiment notes:\n${campaign.marketSentimentNotes}`
       : null,
@@ -497,7 +517,9 @@ export async function generateCampaignBrief(
     };
   } catch (err) {
     console.error("generateCampaignBrief failed:", err);
-    const detail = err instanceof Error ? err.message : String(err);
-    return { ok: false, error: `Brief generation failed: ${detail}` };
+    return {
+      ok: false,
+      error: `Brief generation failed: ${describeAIError(err)}`,
+    };
   }
 }

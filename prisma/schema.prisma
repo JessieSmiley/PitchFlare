@@ -511,6 +511,7 @@ model Campaign {
   launchDate           DateTime?
   embargoDate          DateTime?
   marketSentimentNotes String?
+  marketSentimentTags  String[]
   briefSummary         String?
   briefGeneratedAt     DateTime?
   briefModelUsed       String?

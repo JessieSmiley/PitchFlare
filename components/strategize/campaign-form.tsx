@@ -19,6 +19,10 @@ type CampaignFormValue = {
     | "PARTNERSHIP";
   toneTags: string[];
   budgetRange: "" | "Under $5k" | "$5k-$25k" | "$25k-$100k" | "$100k+";
+  /** YYYY-MM-DD from <input type="date">, or "" when unset. */
+  timelineStart: string;
+  timelineEnd: string;
+  marketSentimentTags: string[];
   marketSentimentNotes: string;
 };
 
@@ -29,6 +33,19 @@ const TONE_CHIPS = [
   "Urgent",
   "Academic",
   "Provocative",
+] as const;
+
+const SENTIMENT_CHIPS = [
+  "Optimistic",
+  "Enthusiastic",
+  "Cautious",
+  "Skeptical",
+  "Uncertain",
+  "Competitive / crowded",
+  "Price-sensitive",
+  "Hype-driven",
+  "Risk-averse",
+  "Underserved",
 ] as const;
 
 export function CampaignForm({
@@ -54,6 +71,9 @@ export function CampaignForm({
         goalType: v.goalType || undefined,
         toneTags: v.toneTags,
         budgetRange: v.budgetRange || null,
+        timelineStart: v.timelineStart || null,
+        timelineEnd: v.timelineEnd || null,
+        marketSentimentTags: v.marketSentimentTags,
         marketSentimentNotes: v.marketSentimentNotes || null,
       });
     },
@@ -68,6 +88,15 @@ export function CampaignForm({
     }));
   }
 
+  function toggleSentiment(s: string) {
+    setValue((v) => ({
+      ...v,
+      marketSentimentTags: v.marketSentimentTags.includes(s)
+        ? v.marketSentimentTags.filter((x) => x !== s)
+        : [...v.marketSentimentTags, s],
+    }));
+  }
+
   function handleCreate() {
     if (!value.title.trim()) return;
     startCreate(async () => {
@@ -77,6 +106,9 @@ export function CampaignForm({
         goalType: value.goalType || undefined,
         toneTags: value.toneTags,
         budgetRange: value.budgetRange || null,
+        timelineStart: value.timelineStart || null,
+        timelineEnd: value.timelineEnd || null,
+        marketSentimentTags: value.marketSentimentTags,
         marketSentimentNotes: value.marketSentimentNotes || null,
       });
       if (res.ok) {
@@ -169,6 +201,54 @@ export function CampaignForm({
           <option>$25k-$100k</option>
           <option>$100k+</option>
         </select>
+      </Field>
+
+      <Field label="Timeline" hint="When does the campaign run?">
+        <div className="flex items-center gap-2">
+          <input
+            type="date"
+            value={value.timelineStart}
+            max={value.timelineEnd || undefined}
+            onChange={(e) =>
+              setValue({ ...value, timelineStart: e.target.value })
+            }
+            className="w-full rounded-md border border-border bg-white px-3 py-2 text-sm"
+            aria-label="Timeline start"
+          />
+          <span className="text-xs text-muted-foreground">to</span>
+          <input
+            type="date"
+            value={value.timelineEnd}
+            min={value.timelineStart || undefined}
+            onChange={(e) =>
+              setValue({ ...value, timelineEnd: e.target.value })
+            }
+            className="w-full rounded-md border border-border bg-white px-3 py-2 text-sm"
+            aria-label="Timeline end"
+          />
+        </div>
+      </Field>
+
+      <Field
+        label="Market sentiment"
+        hint="How does the market feel right now? Pick all that apply."
+      >
+        <div className="flex flex-wrap gap-2">
+          {SENTIMENT_CHIPS.map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => toggleSentiment(s)}
+              className={`rounded-full border px-3 py-1 text-xs transition ${
+                value.marketSentimentTags.includes(s)
+                  ? "border-brand-pink bg-brand-pink text-white"
+                  : "border-border bg-white text-brand-navy hover:border-brand-pink"
+              }`}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
       </Field>
 
       <Field
