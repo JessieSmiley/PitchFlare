@@ -287,8 +287,11 @@ export async function remixAngle(
 
   try {
     const response = await anthropic.messages.parse({
+      // 2048, not 1024: a single remixed angle carries a full rationale,
+      // hook, risk, and audience-fit paragraph, which can truncate the JSON
+      // mid-output at 1024 and fail schema validation.
       model,
-      max_tokens: 1024,
+      max_tokens: 2048,
       system: [
         brandContextAsPromptBlock(brandCtx),
         {
