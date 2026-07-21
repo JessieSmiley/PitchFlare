@@ -47,8 +47,10 @@ const GeneratedAngleSchema = z.object({
 });
 export type GeneratedAngle = z.infer<typeof GeneratedAngleSchema>;
 
+// The prompt asks for exactly 5, but accept whatever non-empty set comes
+// back rather than discarding good angles over a count mismatch.
 const GenerateAnglesOutput = z.object({
-  angles: z.array(GeneratedAngleSchema).length(5),
+  angles: z.array(GeneratedAngleSchema).min(1),
 });
 
 const GenerateAnglesInput = z.object({
@@ -191,7 +193,16 @@ export async function generateAngles(
 
     const out = GenerateAnglesOutput.safeParse(response.parsed_output);
     if (!out.success) {
-      return { ok: false, error: "AI response didn't match expected shape." };
+      console.error(
+        "generateAngles: shape mismatch",
+        out.error.issues,
+        JSON.stringify(response.parsed_output).slice(0, 2000),
+      );
+      return {
+        ok: false,
+        error:
+          "The AI returned an unexpected format. Click Generate again to retry.",
+      };
     }
 
     // Persist every generated angle as an Angle row. IdeationNote also
@@ -276,8 +287,11 @@ export async function remixAngle(
 
   try {
     const response = await anthropic.messages.parse({
+      // 2048, not 1024: a single remixed angle carries a full rationale,
+      // hook, risk, and audience-fit paragraph, which can truncate the JSON
+      // mid-output at 1024 and fail schema validation.
       model,
-      max_tokens: 1024,
+      max_tokens: 2048,
       system: [
         brandContextAsPromptBlock(brandCtx),
         {
@@ -343,7 +357,16 @@ export async function remixAngle(
 
     const remixed = GeneratedAngleSchema.safeParse(response.parsed_output);
     if (!remixed.success) {
-      return { ok: false, error: "AI response didn't match expected shape." };
+      console.error(
+        "remixAngle: shape mismatch",
+        remixed.error.issues,
+        JSON.stringify(response.parsed_output).slice(0, 2000),
+      );
+      return {
+        ok: false,
+        error:
+          "The AI returned an unexpected format. Click Remix again to retry.",
+      };
     }
 
     await db.angle.create({
@@ -374,13 +397,16 @@ const GenerateCampaignBriefInput = z.object({
   useOpus: z.boolean().default(false),
 });
 
+// Lenient on list lengths — the model occasionally returns an extra item or
+// two, and rejecting an otherwise-good brief over that reads as a hard
+// failure to the user. Counts are steered in the prompt instead.
 const CampaignBriefSchema = z.object({
   positioning: z.string(),
-  keyNarratives: z.array(z.string()).min(1).max(5),
+  keyNarratives: z.array(z.string()).min(1),
   audienceSnapshot: z.string(),
   competitiveContext: z.string(),
-  risks: z.array(z.string()).min(0).max(5),
-  recommendedNextSteps: z.array(z.string()).min(1).max(5),
+  risks: z.array(z.string()),
+  recommendedNextSteps: z.array(z.string()).min(1),
 });
 export type CampaignBrief = z.infer<typeof CampaignBriefSchema>;
 
@@ -420,6 +446,8 @@ export async function generateCampaignBrief(
         "the user can scan in 30 seconds. The brief is what we'll use to",
         "anchor the rest of the campaign. Be concrete, opinionated, and",
         "specific to this brand — no generic platitudes.",
+        "Include 3-5 key narratives, up to 5 risks, and 3-5 recommended",
+        "next steps.",
       ].join(" "),
     },
   ];
@@ -447,7 +475,7 @@ export async function generateCampaignBrief(
   try {
     const response = await anthropic.messages.parse({
       model,
-      max_tokens: 2048,
+      max_tokens: 4096,
       system: systemBlocks,
       messages: [{ role: "user", content: campaignBlock }],
       output_config: {
@@ -496,7 +524,16 @@ export async function generateCampaignBrief(
 
     const parsedBrief = CampaignBriefSchema.safeParse(response.parsed_output);
     if (!parsedBrief.success) {
-      return { ok: false, error: "AI response didn't match expected shape." };
+      console.error(
+        "generateCampaignBrief: shape mismatch",
+        parsedBrief.error.issues,
+        JSON.stringify(response.parsed_output).slice(0, 2000),
+      );
+      return {
+        ok: false,
+        error:
+          "The AI returned an unexpected format. Click Generate again to retry.",
+      };
     }
 
     const generatedAt = new Date();

@@ -210,8 +210,8 @@ function AngleCard({
             </p>
           )}
           {angle.risk && (
-            <p className="mt-1 text-xs text-destructive">
-              ⚠ {angle.risk}
+            <p className="mt-1 text-xs text-brand-green">
+              ✦ {angle.risk}
             </p>
           )}
         </div>
