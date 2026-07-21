@@ -42,7 +42,12 @@ const GeneratedAngleSchema = z.object({
     "TRADE",
   ]),
   risk: z.string(),
-  newsworthinessScore: z.number().int().min(1).max(10),
+  // Structured-output JSON schema can't express numeric bounds, so the model
+  // may return a score outside 1-10 (this is what broke Remix, whose prompt
+  // never stated the range). Clamp instead of rejecting the whole response.
+  newsworthinessScore: z
+    .number()
+    .transform((n) => Math.min(10, Math.max(1, Math.round(n)))),
   audienceFit: z.string(),
 });
 export type GeneratedAngle = z.infer<typeof GeneratedAngleSchema>;
@@ -296,7 +301,7 @@ export async function remixAngle(
         brandContextAsPromptBlock(brandCtx),
         {
           type: "text" as const,
-          text: "Remix the given pitch angle according to the user's steering. Return a single angle in the same JSON shape.",
+          text: "Remix the given pitch angle according to the user's steering. Return a single angle in the same JSON shape, including a newsworthiness score from 1 to 10.",
         },
       ],
       messages: [

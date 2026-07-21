@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireTenant } from "@/lib/auth/tenant";
 import { db } from "@/lib/db";
 import { AddContactForm } from "@/components/targets/add-contact-form";
@@ -32,7 +33,13 @@ export default async function TargetsPage({
     campaignId
       ? db.campaign.findFirst({
           where: { id: campaignId, brandId },
-          include: { primaryAngle: true },
+          include: {
+            primaryAngle: true,
+            angles: {
+              where: { selected: true },
+              select: { title: true, hook: true, audienceFit: true },
+            },
+          },
         })
       : Promise.resolve(null),
     db.contact.findMany({
@@ -58,16 +65,23 @@ export default async function TargetsPage({
     }),
   ]);
 
-  // If the campaign has a primary angle, score contacts against it so the
-  // table surfaces a "Match" column out of the gate.
+  // Score contacts against every angle the user selected on Ideation (they
+  // may target different audiences), so the table surfaces a "Match" column
+  // out of the gate. Falls back to the lead angle if nothing is flagged.
+  const selectedAngles = campaign?.angles ?? [];
   const scoreMap = new Map<string, number>();
-  if (campaign?.primaryAngle) {
+  if (campaign && (selectedAngles.length > 0 || campaign.primaryAngle)) {
     const angleTerms = [
       campaign.title,
       campaign.objective,
-      campaign.primaryAngle.title,
-      campaign.primaryAngle.hook,
-      campaign.primaryAngle.audienceFit,
+      ...(campaign.primaryAngle
+        ? [
+            campaign.primaryAngle.title,
+            campaign.primaryAngle.hook,
+            campaign.primaryAngle.audienceFit,
+          ]
+        : []),
+      ...selectedAngles.flatMap((a) => [a.title, a.hook, a.audienceFit]),
       ...(campaign.toneTags ?? []),
     ].filter((s): s is string => Boolean(s && s.length));
 
@@ -149,6 +163,17 @@ export default async function TargetsPage({
           basePath="/dashboard/strategize/targets"
         />
       </header>
+
+      {campaign && (
+        <div className="flex justify-end">
+          <Link
+            href={`/dashboard/draft/pitches?campaignId=${campaign.id}`}
+            className="rounded-lg bg-brand-pink px-5 py-2.5 text-sm font-medium text-white hover:opacity-90"
+          >
+            Next: Draft pitches →
+          </Link>
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-[1fr_2fr]">
         <AddContactForm />

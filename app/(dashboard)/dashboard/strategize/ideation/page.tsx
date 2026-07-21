@@ -46,6 +46,7 @@ export default async function IdeationPage({
                 risk: true,
                 newsworthinessScore: true,
                 audienceFit: true,
+                selected: true,
               },
             },
           },
@@ -122,7 +123,6 @@ export default async function IdeationPage({
         {campaign ? (
           <IdeationCanvas
             campaignId={campaign.id}
-            primaryAngleId={campaign.primaryAngleId}
             angles={campaign.angles}
           />
         ) : (
