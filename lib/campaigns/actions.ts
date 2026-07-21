@@ -156,6 +156,55 @@ export async function setPrimaryAngle(
   return { ok: true };
 }
 
+/**
+ * Toggle whether an angle is part of the campaign's working set. Multiple
+ * angles can be selected at once (different audiences). We keep
+ * `primaryAngleId` pointing at a selected "lead" angle so the existing
+ * contact-scoring on the Targets screen keeps working.
+ */
+export async function toggleAngleSelected(
+  input: { campaignId: string; angleId: string },
+): Promise<ActionResult<{ selected: boolean }>> {
+  const { campaign } = await requireCampaign(input.campaignId);
+
+  const angle = await db.angle.findFirst({
+    where: { id: input.angleId, campaignId: campaign.id },
+    select: { id: true, selected: true },
+  });
+  if (!angle) return { ok: false, error: "Angle not found on this campaign." };
+
+  const nowSelected = !angle.selected;
+  await db.angle.update({
+    where: { id: angle.id },
+    data: { selected: nowSelected },
+  });
+
+  if (nowSelected) {
+    // First selection becomes the lead angle for scoring.
+    if (!campaign.primaryAngleId) {
+      await db.campaign.update({
+        where: { id: campaign.id },
+        data: { primaryAngleId: angle.id },
+      });
+    }
+  } else if (campaign.primaryAngleId === angle.id) {
+    // Deselecting the lead — hand the lead to another selected angle, if any.
+    const next = await db.angle.findFirst({
+      where: { campaignId: campaign.id, selected: true },
+      orderBy: [{ newsworthinessScore: "desc" }, { createdAt: "desc" }],
+      select: { id: true },
+    });
+    await db.campaign.update({
+      where: { id: campaign.id },
+      data: { primaryAngleId: next?.id ?? null },
+    });
+  }
+
+  revalidatePath("/dashboard/strategize/ideation");
+  revalidatePath("/dashboard/strategize/targets");
+  return { ok: true, selected: nowSelected };
+}
+
 export async function deleteAngle(
   input: { campaignId: string; angleId: string },
 ): Promise<ActionResult> {

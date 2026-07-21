@@ -2,8 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { generateAngles, remixAngle } from "@/lib/campaigns/ai";
-import { deleteAngle, setPrimaryAngle } from "@/lib/campaigns/actions";
+import { deleteAngle, toggleAngleSelected } from "@/lib/campaigns/actions";
 
 type AngleRow = {
   id: string;
@@ -14,15 +15,14 @@ type AngleRow = {
   risk: string | null;
   newsworthinessScore: number | null;
   audienceFit: string | null;
+  selected: boolean;
 };
 
 export function IdeationCanvas({
   campaignId,
-  primaryAngleId,
   angles,
 }: {
   campaignId: string;
-  primaryAngleId: string | null;
   angles: AngleRow[];
 }) {
   const router = useRouter();
@@ -30,6 +30,8 @@ export function IdeationCanvas({
   const [useOpus, setUseOpus] = useState(false);
   const [steer, setSteer] = useState("");
   const [error, setError] = useState<string | null>(null);
+
+  const selectedCount = angles.filter((a) => a.selected).length;
 
   function handleGenerate() {
     setError(null);
@@ -47,8 +49,8 @@ export function IdeationCanvas({
     });
   }
 
-  async function handleUse(angleId: string) {
-    const res = await setPrimaryAngle({ campaignId, angleId });
+  async function handleToggle(angleId: string) {
+    const res = await toggleAngleSelected({ campaignId, angleId });
     if (!res.ok) {
       setError(res.error);
     } else {
@@ -117,28 +119,46 @@ export function IdeationCanvas({
           <AngleCard
             key={a.id}
             angle={a}
-            isPrimary={a.id === primaryAngleId}
             campaignId={campaignId}
-            onUse={() => handleUse(a.id)}
+            onToggle={() => handleToggle(a.id)}
             onDiscard={() => handleDiscard(a.id)}
           />
         ))}
       </ul>
+
+      {selectedCount > 0 && (
+        <div className="flex flex-col gap-3 rounded-lg border-2 border-brand-green bg-card p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="font-display text-base text-brand-navy">
+              {selectedCount} angle{selectedCount === 1 ? "" : "s"} selected for
+              this campaign
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Pick as many as you like — each can target a different audience.
+              Next, line up the journalists and outlets to pitch.
+            </p>
+          </div>
+          <Link
+            href={`/dashboard/strategize/targets?campaignId=${campaignId}`}
+            className="shrink-0 rounded-lg bg-brand-pink px-5 py-3 text-center text-sm font-medium text-white hover:opacity-90"
+          >
+            Next: Compile media targets →
+          </Link>
+        </div>
+      )}
     </section>
   );
 }
 
 function AngleCard({
   angle,
-  isPrimary,
   campaignId,
-  onUse,
+  onToggle,
   onDiscard,
 }: {
   angle: AngleRow;
-  isPrimary: boolean;
   campaignId: string;
-  onUse: () => void | Promise<void>;
+  onToggle: () => void | Promise<void>;
   onDiscard: () => void | Promise<void>;
 }) {
   const router = useRouter();
@@ -169,7 +189,9 @@ function AngleCard({
   return (
     <li
       className={`rounded-lg border bg-card p-5 ${
-        isPrimary ? "border-brand-pink ring-2 ring-accent" : "border-border"
+        angle.selected
+          ? "border-brand-pink ring-2 ring-accent"
+          : "border-border"
       }`}
     >
       <div className="flex items-start justify-between gap-3">
@@ -178,9 +200,9 @@ function AngleCard({
             <h3 className="font-display text-lg text-brand-navy">
               {angle.title}
             </h3>
-            {isPrimary && (
+            {angle.selected && (
               <span className="rounded-full bg-brand-pink px-2 py-0.5 text-[10px] font-medium text-white">
-                Primary
+                Selected
               </span>
             )}
             {angle.mediaFit && (
@@ -220,11 +242,14 @@ function AngleCard({
       <div className="mt-3 flex flex-wrap gap-2">
         <button
           type="button"
-          onClick={onUse}
-          disabled={isPrimary}
-          className="rounded-lg bg-brand-pink px-3 py-1 text-xs text-white disabled:opacity-50"
+          onClick={onToggle}
+          className={`rounded-lg px-3 py-1 text-xs ${
+            angle.selected
+              ? "border border-brand-pink bg-white text-brand-pink"
+              : "bg-brand-pink text-white"
+          }`}
         >
-          {isPrimary ? "✓ Using this angle" : "Use this angle"}
+          {angle.selected ? "✓ Selected — remove" : "Use this angle"}
         </button>
         <button
           type="button"
