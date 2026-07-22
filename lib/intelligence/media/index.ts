@@ -17,11 +17,14 @@ import type {
  * Never spends paid credits. Contact details for these journalists are
  * resolved separately, on demand, by Contact Intelligence.
  */
-export async function getMediaIntel(query: MediaQuery): Promise<MediaIntel> {
-  const company = await getCompanyIntel({
-    name: query.name,
-    domain: query.domain,
-  });
+export async function getMediaIntel(
+  query: MediaQuery,
+  opts: { accountId?: string } = {},
+): Promise<MediaIntel> {
+  const company = await getCompanyIntel(
+    { name: query.name, domain: query.domain },
+    { accountId: opts.accountId },
+  );
 
   const publicationName = company?.name ?? query.name;
   const domain = company?.domain ?? query.domain;

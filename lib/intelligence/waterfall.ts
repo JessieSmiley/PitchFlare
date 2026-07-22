@@ -1,7 +1,9 @@
 import { getMediaIntel } from "./media";
+import { getCompanyIntel } from "./company";
 import { resolveContactEmail, type PaidResolver } from "./contact";
 import { domainHasMx } from "./verify";
 import { normalizeDomain } from "./cache";
+import type { CompanySummary } from "./types";
 import type { DiscoveredPerson } from "@/lib/providers/types";
 
 /**
@@ -37,6 +39,8 @@ export type DiscoveryOutcome = {
   people: DiscoveredPerson[];
   outletName?: string;
   domain?: string;
+  /** Company snapshot (description, funding, awards, socials) for the header. */
+  company: CompanySummary | null;
   /** True when we had to spend on paid discovery to fill the list. */
   usedPaidDiscovery: boolean;
 };
@@ -47,9 +51,27 @@ export async function discoverContactsWaterfall(
 ): Promise<DiscoveryOutcome> {
   const minFree = ctx.minFreeResults ?? 5;
 
-  // --- Free tier: Media Intelligence (crawl + RSS bylines + news) ---------
-  const media = await getMediaIntel(query);
+  // --- Free tier: Media + Company Intelligence (crawl + RSS + news + AI) --
+  const media = await getMediaIntel(query, { accountId: ctx.accountId });
   const domain = media.domain ? normalizeDomain(media.domain) : undefined;
+
+  // Company Intelligence is a cache hit here (Media Intelligence just built
+  // it), so this is effectively free — we surface it for the panel header.
+  const companyIntel = await getCompanyIntel(query, {
+    accountId: ctx.accountId,
+  });
+  const company: CompanySummary | null = companyIntel
+    ? {
+        name: companyIntel.name,
+        domain: companyIntel.domain,
+        description: companyIntel.description,
+        linkedinUrl: companyIntel.linkedinUrl,
+        socials: companyIntel.socials,
+        funding: companyIntel.funding,
+        awards: companyIntel.awards,
+        pressReleases: companyIntel.pressReleases?.slice(0, 5),
+      }
+    : null;
 
   const free: DiscoveredPerson[] = [];
   for (const j of media.journalists.slice(0, 25)) {
@@ -106,6 +128,7 @@ export async function discoverContactsWaterfall(
           people: dedupe([...people, ...paid.people]),
           outletName: media.publicationName,
           domain: domain ?? paid.domain,
+          company,
           usedPaidDiscovery,
         };
       }
@@ -118,6 +141,7 @@ export async function discoverContactsWaterfall(
     people,
     outletName: media.publicationName,
     domain,
+    company,
     usedPaidDiscovery,
   };
 }

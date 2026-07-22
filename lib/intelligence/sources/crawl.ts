@@ -143,6 +143,15 @@ export async function crawlCompany(
 
   if (socials.linkedin) linkedinUrl = socials.linkedin;
 
+  // Bounded plain-text sample for downstream AI extraction. Strip scripts/
+  // styles first so we don't feed JS/CSS to the model.
+  $("script, style, noscript, svg").remove();
+  const textSample = $("body")
+    .text()
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 4000);
+
   const result: CrawlResult = {
     domain,
     name: schemaName ?? meta("og:site_name") ?? undefined,
@@ -153,6 +162,7 @@ export async function crawlCompany(
     executives: executives.slice(0, 20),
     pressPages: [...pressPages].slice(0, 10),
     rssFeeds: [...rssFeeds].slice(0, 10),
+    textSample: textSample || undefined,
   };
 
   await putSourceCache(cacheKey, "crawl", result, CRAWL_TTL_MS);

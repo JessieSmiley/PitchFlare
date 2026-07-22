@@ -4,6 +4,16 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { addDiscoveredContacts } from "@/lib/contacts/discover";
 import type { DiscoveredPerson } from "@/lib/providers/types";
+import type { CompanySummary } from "@/lib/intelligence/types";
+
+function hasCompanyFacts(c: CompanySummary): boolean {
+  return Boolean(
+    c.description ||
+      (c.funding && c.funding.length) ||
+      (c.awards && c.awards.length) ||
+      (c.socials && Object.keys(c.socials).length),
+  );
+}
 
 const STATUS_LABEL: Record<string, string> = {
   VALID: "Verified",
@@ -36,12 +46,14 @@ export function DiscoverPanel({
   providerLabel,
   query,
   outletName,
+  company,
   people,
   onClose,
 }: {
   providerLabel: string;
   query: string;
   outletName?: string;
+  company?: CompanySummary | null;
   people: DiscoveredPerson[];
   onClose: () => void;
 }) {
@@ -110,6 +122,53 @@ export function DiscoverPanel({
             Close
           </button>
         </header>
+
+        {company && hasCompanyFacts(company) && (
+          <section className="border-b border-border bg-muted/30 px-6 py-4 text-xs">
+            <div className="flex items-center gap-2">
+              <h3 className="font-display text-sm text-brand-navy">
+                {company.name}
+              </h3>
+              {company.socials &&
+                Object.entries(company.socials).map(([k, url]) => (
+                  <a
+                    key={k}
+                    href={url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-brand-pink hover:underline"
+                  >
+                    {k}
+                  </a>
+                ))}
+            </div>
+            {company.description && (
+              <p className="mt-1 text-muted-foreground">
+                {company.description.slice(0, 240)}
+              </p>
+            )}
+            {company.funding && company.funding.length > 0 && (
+              <p className="mt-2 text-brand-navy">
+                <span className="font-medium">Funding:</span>{" "}
+                {company.funding
+                  .map((f) =>
+                    [f.round, f.amount, f.date].filter(Boolean).join(" · "),
+                  )
+                  .filter(Boolean)
+                  .join("  |  ")}
+              </p>
+            )}
+            {company.awards && company.awards.length > 0 && (
+              <p className="mt-1 text-brand-navy">
+                <span className="font-medium">Awards:</span>{" "}
+                {company.awards.map((a) => a.title).join(", ")}
+              </p>
+            )}
+            <p className="mt-2 text-[10px] text-muted-foreground">
+              Company facts from free web sources + AI extraction, cached.
+            </p>
+          </section>
+        )}
 
         <div className="flex-1 overflow-y-auto">
           {people.length === 0 ? (

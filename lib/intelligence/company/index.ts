@@ -6,7 +6,13 @@ import {
 import { crawlCompany } from "../sources/crawl";
 import { recentNews } from "../sources/news";
 import { companyLinkedinUrl } from "../sources/linkedin";
-import type { CompanyIntel, CompanyQuery } from "../types";
+import { extractCompanyFacts } from "./extract";
+import type { CompanyIntel, CompanyQuery, PersonRef } from "../types";
+
+export type CompanyOptions = {
+  /** Account to attribute AI-extraction token usage to (best-effort). */
+  accountId?: string;
+};
 
 /**
  * Company Intelligence service (Tier-1, free, PUBLIC data). Assembles a
@@ -19,6 +25,7 @@ import type { CompanyIntel, CompanyQuery } from "../types";
  */
 export async function getCompanyIntel(
   query: CompanyQuery,
+  opts: CompanyOptions = {},
 ): Promise<CompanyIntel | null> {
   const domain = await resolveDomain(query);
   if (!domain) return null;
@@ -34,22 +41,59 @@ export async function getCompanyIntel(
   // 3. Recent press/coverage from Google News (free).
   const news = await recentNews(name, 10);
 
+  // 4. AI extraction (paid-ish but cheap + cached once) pulls funding,
+  //    awards, podcasts, and a cleaner exec list out of the crawled prose.
+  //    Best-effort — merges over the free signals, never replaces them.
+  const facts = await extractCompanyFacts({
+    name,
+    domain,
+    textSample: crawl?.textSample,
+    pressTitles: news.map((n) => n.title),
+    accountId: opts.accountId,
+  });
+
+  const executives = mergeExecutives(crawl?.executives, facts?.executives);
+
   const intel: CompanyIntel = {
     name,
     domain,
-    description: crawl?.description,
+    description: crawl?.description ?? facts?.description,
     linkedinUrl: companyLinkedinUrl(name, crawl?.linkedinUrl),
-    executives: crawl?.executives?.length ? crawl.executives : undefined,
+    executives: executives.length ? executives : undefined,
     socials: crawl && Object.keys(crawl.socials).length ? crawl.socials : undefined,
     pressPages: crawl?.pressPages ?? [],
     rssFeeds: crawl?.rssFeeds ?? [],
     pressReleases: news.length ? news : undefined,
+    funding: facts?.funding,
+    podcasts: facts?.podcasts,
+    awards: facts?.awards,
     fromCache: false,
   };
 
-  // 4. Cache forever (refreshed on next miss past the TTL window).
+  // 5. Cache forever (refreshed on next miss past the TTL window).
   await upsertCompanyProfile({ ...intel, domain });
   return intel;
+}
+
+/** Union executives from Schema.org and AI, deduped by lowercased name. */
+function mergeExecutives(
+  crawled?: PersonRef[],
+  extracted?: PersonRef[],
+): PersonRef[] {
+  const byName = new Map<string, PersonRef>();
+  for (const p of [...(crawled ?? []), ...(extracted ?? [])]) {
+    const key = p.name.trim().toLowerCase();
+    if (!key) continue;
+    const existing = byName.get(key);
+    if (existing) {
+      // Prefer whichever has a title/url filled in.
+      existing.title ??= p.title;
+      existing.url ??= p.url;
+    } else {
+      byName.set(key, { ...p });
+    }
+  }
+  return [...byName.values()].slice(0, 20);
 }
 
 /**

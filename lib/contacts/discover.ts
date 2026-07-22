@@ -9,6 +9,7 @@ import { hunter } from "@/lib/providers";
 import { discoverContactsWaterfall } from "@/lib/intelligence/waterfall";
 import { hunterResolver } from "@/lib/intelligence/contact/paid";
 import type { PaidResolver } from "@/lib/intelligence/contact";
+import type { CompanySummary } from "@/lib/intelligence/types";
 import type { DiscoveredPerson } from "@/lib/providers/types";
 
 type ActionResult<T = unknown> =
@@ -38,6 +39,7 @@ export async function discoverContacts(
   ActionResult<{
     people: DiscoveredPerson[];
     outletName?: string;
+    company: CompanySummary | null;
     usedPaidDiscovery: boolean;
   }>
 > {
@@ -103,6 +105,7 @@ export async function discoverContacts(
     ok: true,
     people: outcome.people,
     outletName: outcome.outletName,
+    company: outcome.company,
     usedPaidDiscovery: outcome.usedPaidDiscovery,
   };
 }

@@ -56,6 +56,18 @@ export type CompanyIntel = {
   fromCache: boolean;
 };
 
+/** Compact, client-safe slice of CompanyIntel for the discovery UI. */
+export type CompanySummary = {
+  name: string;
+  domain?: string;
+  description?: string;
+  linkedinUrl?: string;
+  socials?: Record<string, string>;
+  funding?: FundingFact[];
+  awards?: LinkRef[];
+  pressReleases?: LinkRef[];
+};
+
 // ---------------------------------------------------------------------------
 // Media Intelligence
 // ---------------------------------------------------------------------------
@@ -129,4 +141,6 @@ export type CrawlResult = {
   executives: PersonRef[];
   pressPages: string[];
   rssFeeds: string[];
+  /** Bounded plain-text sample of the homepage, for AI fact extraction. */
+  textSample?: string;
 };

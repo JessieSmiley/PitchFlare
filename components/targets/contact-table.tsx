@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { discoverContacts } from "@/lib/contacts/discover";
 import type { DiscoveredPerson } from "@/lib/providers/types";
+import type { CompanySummary } from "@/lib/intelligence/types";
 import { DiscoverPanel } from "./discover-panel";
 
 export type ContactRow = {
@@ -47,6 +48,7 @@ export function ContactTable({
   const [results, setResults] = useState<{
     query: string;
     outletName?: string;
+    company: CompanySummary | null;
     people: DiscoveredPerson[];
   } | null>(null);
 
@@ -69,6 +71,7 @@ export function ContactTable({
       setResults({
         query: trimmedQ,
         outletName: res.outletName,
+        company: res.company,
         people: res.people,
       });
     });
@@ -250,6 +253,7 @@ export function ContactTable({
         providerLabel={discovery.label}
         query={results.query}
         outletName={results.outletName}
+        company={results.company}
         people={results.people}
         onClose={() => setResults(null)}
       />
