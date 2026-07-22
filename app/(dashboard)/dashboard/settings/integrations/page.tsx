@@ -29,8 +29,9 @@ const META: Record<
       "Credits count against your own Prospeo plan. Used as a fallback in the discovery waterfall — only called when free sources and Hunter don't resolve an email.",
   },
   APOLLO: {
-    fieldCoverage: ["email", "title", "outletName", "linkedinUrl", "twitterUrl"],
-    costNote: "Not yet connected — ships in a later release.",
+    fieldCoverage: ["email", "title", "outletName", "linkedinUrl"],
+    costNote:
+      "Credits count against your own Apollo plan. Locked emails (Apollo's email_not_unlocked placeholder) are dropped rather than saved, so you never get a junk address.",
   },
   PODCHASER: {
     fieldCoverage: ["hostName", "showName", "showCategory", "episodeCount"],

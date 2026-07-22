@@ -9,6 +9,7 @@ import { hunter } from "@/lib/providers";
 import { discoverContactsWaterfall } from "@/lib/intelligence/waterfall";
 import {
   hunterResolver,
+  apolloResolver,
   prospeoResolver,
 } from "@/lib/intelligence/contact/paid";
 import type { PaidResolver } from "@/lib/intelligence/contact";
@@ -58,12 +59,14 @@ export async function discoverContacts(
 
   // Wire the paid tier from whatever email-capable partners are connected.
   // Everything else runs on free sources + cache. Resolvers are ordered
-  // cheapest-first (Hunter, then Prospeo) so the waterfall stops at the
-  // first hit.
+  // in preference order (Hunter → Apollo → Prospeo) so the waterfall stops
+  // at the first hit. Dropcontact is intentionally excluded here — its
+  // submit+poll latency belongs on the single-contact drawer path, not a
+  // per-person discovery loop.
   const paidIntegrations = await db.integration.findMany({
     where: {
       accountId,
-      partner: { in: ["HUNTER", "PROSPEO"] },
+      partner: { in: ["HUNTER", "APOLLO", "PROSPEO"] },
       status: "CONNECTED",
     },
   });
@@ -106,6 +109,12 @@ export async function discoverContacts(
         return { people: [] };
       }
     };
+  }
+
+  const apolloIntegration = byPartner.get("APOLLO");
+  if (apolloIntegration) {
+    const key = decryptSecret(apolloIntegration.encryptedCredentials);
+    paidResolvers.push(apolloResolver(key));
   }
 
   const prospeoIntegration = byPartner.get("PROSPEO");
