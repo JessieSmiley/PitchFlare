@@ -80,6 +80,15 @@ export type DiscoveredPerson = {
   phone?: string;
   /** Provider confidence 0–100 where available. */
   confidence?: number;
+  /**
+   * Verification/provenance from the discovery waterfall. `emailStatus`
+   * mirrors EmailVerifyStatus (VALID/ACCEPT_ALL/UNKNOWN/GUESSED/INVALID)
+   * and `emailSource` mirrors EmailSource (DATABASE/CACHE/PERMUTATION/
+   * HUNTER/…) so the UI can badge how an address was found and how sure we
+   * are. Optional — direct provider discovery leaves them unset.
+   */
+  emailStatus?: string;
+  emailSource?: string;
 };
 
 export type DiscoverResult = {

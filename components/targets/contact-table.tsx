@@ -51,18 +51,17 @@ export function ContactTable({
   } | null>(null);
 
   const trimmedQ = q.trim();
-  // Only offer partner search once the query looks like an outlet/company
-  // name (the local filter already covers substrings of loaded contacts).
-  const canOfferDiscovery = Boolean(discovery) && trimmedQ.length >= 2;
+  // Offer outward discovery once the query looks like an outlet/company name
+  // (the local filter already covers substrings of loaded contacts). This
+  // runs on free web sources first, so it works with or without a connected
+  // partner.
+  const canOfferDiscovery = trimmedQ.length >= 2;
 
   function runDiscovery() {
-    if (!discovery?.connected || trimmedQ.length < 2) return;
+    if (trimmedQ.length < 2) return;
     setSearchError(null);
     startSearch(async () => {
-      const res = await discoverContacts({
-        partner: discovery.partner,
-        query: trimmedQ,
-      });
+      const res = await discoverContacts({ query: trimmedQ });
       if (!res.ok) {
         setSearchError(res.error);
         return;
@@ -118,34 +117,33 @@ export function ContactTable({
         />
       </div>
 
-      {canOfferDiscovery && discovery && (
+      {canOfferDiscovery && (
         <div className="flex flex-wrap items-center gap-2 border-b border-border bg-muted/40 px-3 py-2 text-xs">
-          {discovery.connected ? (
-            <>
-              <button
-                type="button"
-                onClick={runDiscovery}
-                disabled={searching}
-                className="rounded-md bg-brand-pink px-3 py-1 text-white hover:opacity-90 disabled:opacity-60"
-              >
-                {searching
-                  ? `Searching ${discovery.label}…`
-                  : `🔍 Search ${discovery.label} for contacts at “${trimmedQ}”`}
-              </button>
-              <span className="text-muted-foreground">
-                Pulls in new contacts · uses your {discovery.label} credits
-              </span>
-            </>
+          <button
+            type="button"
+            onClick={runDiscovery}
+            disabled={searching}
+            className="rounded-md bg-brand-pink px-3 py-1 text-white hover:opacity-90 disabled:opacity-60"
+          >
+            {searching
+              ? "Searching…"
+              : `🔍 Find contacts at “${trimmedQ}”`}
+          </button>
+          {discovery?.connected ? (
+            <span className="text-muted-foreground">
+              Free web sources first · {discovery.label} fills gaps with
+              verified emails
+            </span>
           ) : (
             <span className="text-muted-foreground">
-              Not finding them?{" "}
+              Uses free web sources ·{" "}
               <Link
                 href="/dashboard/settings/integrations"
                 className="text-brand-pink hover:underline"
               >
-                Connect {discovery.label}
+                connect {discovery?.label ?? "a partner"}
               </Link>{" "}
-              to search for new contacts at “{trimmedQ}”.
+              for verified emails
             </span>
           )}
           {searchError && (

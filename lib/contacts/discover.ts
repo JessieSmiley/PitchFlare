@@ -5,34 +5,42 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireTenant } from "@/lib/auth/tenant";
 import { decryptSecret } from "@/lib/crypto";
-import { providerFor } from "@/lib/providers";
+import { hunter } from "@/lib/providers";
+import { discoverContactsWaterfall } from "@/lib/intelligence/waterfall";
+import { hunterResolver } from "@/lib/intelligence/contact/paid";
+import type { PaidResolver } from "@/lib/intelligence/contact";
 import type { DiscoveredPerson } from "@/lib/providers/types";
-import type { IntegrationPartner } from "@prisma/client";
 
 type ActionResult<T = unknown> =
   | ({ ok: true } & T)
   | { ok: false; error: string };
 
 const DiscoverInputSchema = z.object({
-  partner: z.enum(["HUNTER", "APOLLO", "PODCHASER", "SPARKTORO"]),
   query: z.string().trim().min(2).max(120),
   limit: z.number().int().min(1).max(100).optional(),
 });
 
 /**
- * Search a connected data partner for candidate contacts matching a
- * free-text query (typically an outlet/company name from the Targets
- * search bar). Read-only: this spends the user's partner credits but
- * persists nothing — the returned candidates are staged in the UI and
- * only saved when the user picks them via addDiscoveredContacts.
+ * Discover candidate contacts for a company/outlet the user typed into the
+ * Targets search bar. Runs the cache-first waterfall (Media Intelligence +
+ * free email resolution) and only backfills with a connected paid provider
+ * (Hunter) when the free path comes up short. Read-only: nothing is
+ * persisted until the user picks candidates via addDiscoveredContacts.
  *
- * Guard rails mirror enrichContactWithPartner: a missing/unusable key
- * surfaces a friendly "connect it first" message, and a provider failure
- * flips the Integration to ERROR with the reason so Settings shows it.
+ * Works with NO connected partner (free tiers alone). If Hunter is
+ * connected, its key powers both email resolution and the paid discovery
+ * backfill; a provider failure is swallowed by the waterfall so the free
+ * results still return, but we record it on the Integration for Settings.
  */
 export async function discoverContacts(
   input: z.input<typeof DiscoverInputSchema>,
-): Promise<ActionResult<{ people: DiscoveredPerson[]; outletName?: string }>> {
+): Promise<
+  ActionResult<{
+    people: DiscoveredPerson[];
+    outletName?: string;
+    usedPaidDiscovery: boolean;
+  }>
+> {
   const parsed = DiscoverInputSchema.safeParse(input);
   if (!parsed.success) {
     return {
@@ -41,60 +49,61 @@ export async function discoverContacts(
     };
   }
   const tenant = await requireTenant();
-  const partner = parsed.data.partner as IntegrationPartner;
+  const accountId = tenant.account.id;
 
-  const provider = providerFor(partner);
-  if (!provider) return { ok: false, error: "Unknown provider." };
-  if (!provider.supportsDiscovery || !provider.discover) {
-    return {
-      ok: false,
-      error: `${provider.label} doesn't support contact search yet.`,
-    };
-  }
-
-  const integration = await db.integration.findFirst({
-    where: { accountId: tenant.account.id, partner, status: "CONNECTED" },
+  // Wire the paid tier only if Hunter is connected. Everything else runs on
+  // free sources + cache.
+  const hunterIntegration = await db.integration.findFirst({
+    where: { accountId, partner: "HUNTER", status: "CONNECTED" },
   });
-  if (!integration) {
-    return {
-      ok: false,
-      error: `Connect ${provider.label} in Settings → Integrations to search for contacts.`,
+
+  let paidResolvers: PaidResolver[] | undefined;
+  let paidDiscovery:
+    | ((q: {
+        name?: string;
+        domain?: string;
+      }) => Promise<{ people: DiscoveredPerson[]; domain?: string }>)
+    | undefined;
+
+  if (hunterIntegration) {
+    const key = decryptSecret(hunterIntegration.encryptedCredentials);
+    paidResolvers = [hunterResolver(key)];
+    paidDiscovery = async (q) => {
+      try {
+        const res = await hunter.discover!(key, {
+          query: q.name,
+          domain: q.domain,
+          department: "communication",
+          limit: parsed.data.limit ?? 25,
+        });
+        await db.integration.update({
+          where: { id: hunterIntegration.id },
+          data: { lastSyncAt: new Date(), lastError: null, status: "CONNECTED" },
+        });
+        return { people: res.people, domain: res.domain };
+      } catch (err) {
+        await db.integration.update({
+          where: { id: hunterIntegration.id },
+          data: {
+            status: "ERROR",
+            lastError: err instanceof Error ? err.message : "discovery failed",
+          },
+        });
+        return { people: [] };
+      }
     };
   }
 
-  let result;
-  try {
-    const key = decryptSecret(integration.encryptedCredentials);
-    result = await provider.discover(key, {
-      query: parsed.data.query,
-      // Bias toward press/editorial roles by default. Hunter maps this to
-      // its `communication` department; other providers may ignore it.
-      department: "communication",
-      limit: parsed.data.limit ?? 25,
-    });
-  } catch (err) {
-    await db.integration.update({
-      where: { id: integration.id },
-      data: {
-        status: "ERROR",
-        lastError: err instanceof Error ? err.message : "discovery failed",
-      },
-    });
-    return {
-      ok: false,
-      error: err instanceof Error ? err.message : "Contact search failed.",
-    };
-  }
-
-  await db.integration.update({
-    where: { id: integration.id },
-    data: { lastSyncAt: new Date(), lastError: null, status: "CONNECTED" },
-  });
+  const outcome = await discoverContactsWaterfall(
+    { name: parsed.data.query },
+    { accountId, paidResolvers, paidDiscovery },
+  );
 
   return {
     ok: true,
-    people: result.people,
-    outletName: result.outletName,
+    people: outcome.people,
+    outletName: outcome.outletName,
+    usedPaidDiscovery: outcome.usedPaidDiscovery,
   };
 }
 

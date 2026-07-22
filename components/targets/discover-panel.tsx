@@ -5,6 +5,33 @@ import { useRouter } from "next/navigation";
 import { addDiscoveredContacts } from "@/lib/contacts/discover";
 import type { DiscoveredPerson } from "@/lib/providers/types";
 
+const STATUS_LABEL: Record<string, string> = {
+  VALID: "Verified",
+  ACCEPT_ALL: "Accepts all",
+  UNKNOWN: "Unverified",
+  GUESSED: "Guessed",
+  INVALID: "Invalid",
+};
+
+const STATUS_TONE: Record<string, string> = {
+  VALID: "bg-green-100 text-green-700",
+  ACCEPT_ALL: "bg-amber-100 text-amber-700",
+  UNKNOWN: "bg-muted text-muted-foreground",
+  GUESSED: "bg-amber-100 text-amber-700",
+  INVALID: "bg-red-100 text-red-700",
+};
+
+const SOURCE_LABEL: Record<string, string> = {
+  DATABASE: "Your database",
+  CACHE: "Cache",
+  PERMUTATION: "Pattern + verify",
+  HUNTER: "Hunter.io",
+  APOLLO: "Apollo",
+  PROSPEO: "Prospeo",
+  DROPCONTACT: "Dropcontact",
+  PEOPLE_DATA_LABS: "People Data Labs",
+};
+
 export function DiscoverPanel({
   providerLabel,
   query,
@@ -115,8 +142,22 @@ export function DiscoverPanel({
                         {[p.title, p.outletName].filter(Boolean).join(" · ") ||
                           "—"}
                       </div>
-                      <div className="truncate font-mono text-xs text-brand-navy">
-                        {p.email ?? "no email found"}
+                      <div className="flex items-center gap-2">
+                        <span className="truncate font-mono text-xs text-brand-navy">
+                          {p.email ?? "no email found"}
+                        </span>
+                        {p.email && p.emailStatus && (
+                          <span
+                            className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-medium ${STATUS_TONE[p.emailStatus] ?? "bg-muted text-muted-foreground"}`}
+                            title={
+                              p.emailSource
+                                ? `Source: ${SOURCE_LABEL[p.emailSource] ?? p.emailSource}`
+                                : undefined
+                            }
+                          >
+                            {STATUS_LABEL[p.emailStatus] ?? p.emailStatus}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </label>
