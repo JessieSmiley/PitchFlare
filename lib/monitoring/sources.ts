@@ -6,6 +6,8 @@ export type MonitoringHit = {
   title: string;
   excerpt: string | null;
   outletName: string | null;
+  /** The publishing outlet's site URL from Google News' <source url="…">. */
+  outletUrl: string | null;
   author: string | null;
   publishedAt: Date | null;
   sourceProvider: "GOOGLE_NEWS_RSS" | "GDELT" | "BING_NEWS";
@@ -38,7 +40,9 @@ export async function queryGoogleNewsRss(
     const title = $el.find("title").text().trim();
     const link = $el.find("link").text().trim();
     const pubDate = $el.find("pubDate").text().trim();
-    const source = $el.find("source").text().trim() || null;
+    const sourceEl = $el.find("source").first();
+    const source = sourceEl.text().trim() || null;
+    const sourceUrl = sourceEl.attr("url")?.trim() || null;
     const description = $el.find("description").text().trim() || null;
 
     if (!title || !link) return;
@@ -52,6 +56,7 @@ export async function queryGoogleNewsRss(
       title,
       excerpt: stripHtml(description)?.slice(0, 500) ?? null,
       outletName: source,
+      outletUrl: sourceUrl,
       author: null,
       publishedAt,
       sourceProvider: "GOOGLE_NEWS_RSS",

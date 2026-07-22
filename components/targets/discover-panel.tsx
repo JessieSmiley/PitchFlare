@@ -49,6 +49,7 @@ export function DiscoverPanel({
   outletName,
   company,
   people,
+  usedPaidDiscovery = false,
   onClose,
 }: {
   providerLabel: string;
@@ -56,6 +57,7 @@ export function DiscoverPanel({
   outletName?: string;
   company?: CompanySummary | null;
   people: DiscoveredPerson[];
+  usedPaidDiscovery?: boolean;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -107,14 +109,16 @@ export function DiscoverPanel({
         <header className="flex items-start justify-between border-b border-border p-6">
           <div>
             <h2 className="font-display text-2xl text-brand-navy">
-              {providerLabel} results
+              Search results
             </h2>
             <p className="text-xs text-muted-foreground">
               {people.length} found for &ldquo;{query}&rdquo;
               {outletName && outletName.toLowerCase() !== query.toLowerCase()
                 ? ` · ${outletName}`
                 : ""}
-              . Uses your {providerLabel} credits.
+              {usedPaidDiscovery
+                ? ` · includes ${providerLabel} results (uses your credits)`
+                : " · free web sources"}
             </p>
           </div>
           <button

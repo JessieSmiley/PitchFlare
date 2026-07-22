@@ -171,12 +171,13 @@ export async function crawlCompany(
 
 function cacheNull(key: string, domain: string): null {
   // Cache a minimal shell briefly so a dead domain isn't re-fetched on every
-  // keystroke; short TTL so transient outages recover.
+  // keystroke. TTL is deliberately short (5 min): a transient failure must
+  // not make an outlet un-searchable for an hour.
   void putSourceCache(
     key,
     "crawl",
     { domain, socials: {}, executives: [], pressPages: [], rssFeeds: [] },
-    60 * 60 * 1000,
+    5 * 60 * 1000,
   );
   return null;
 }

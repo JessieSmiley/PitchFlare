@@ -4,7 +4,7 @@ import {
   normalizeDomain,
 } from "../cache";
 import { crawlCompany } from "../sources/crawl";
-import { recentNews } from "../sources/news";
+import { recentNews, resolveOutletDomain } from "../sources/news";
 import { companyLinkedinUrl } from "../sources/linkedin";
 import { extractCompanyFacts } from "./extract";
 import type { CompanyIntel, CompanyQuery, PersonRef } from "../types";
@@ -97,10 +97,13 @@ function mergeExecutives(
 }
 
 /**
- * Resolve a query to a domain. Prefer an explicit domain; otherwise take a
- * best-effort ".com" slug guess and only accept it if the crawl actually
- * resolves to a real page. Weak by design — the paid providers (which map a
- * company name → domain server-side) fill the gap when this misses.
+ * Resolve a query to a domain, in decreasing order of reliability:
+ *   1. An explicit or domain-shaped input ("nytimes.com") — used directly.
+ *   2. resolveOutletDomain: known-outlet seed map, then Google News
+ *      <source url> matching — both free, and they find real domains a
+ *      slug guess never could (e.g. "new york times" → nytimes.com).
+ *   3. Last resort: the old `name + ".com"` slug guess, accepted only if
+ *      the crawl actually resolves to a real page.
  */
 async function resolveDomain(query: CompanyQuery): Promise<string | null> {
   if (query.domain) return normalizeDomain(query.domain);
@@ -110,6 +113,9 @@ async function resolveDomain(query: CompanyQuery): Promise<string | null> {
   if (/\.[a-z]{2,}$/i.test(query.name.trim())) {
     return normalizeDomain(query.name);
   }
+
+  const resolved = await resolveOutletDomain(query.name);
+  if (resolved) return resolved.domain;
 
   const slug = query.name
     .trim()

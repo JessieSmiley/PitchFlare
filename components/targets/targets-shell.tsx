@@ -59,7 +59,7 @@ export function TargetsShell({
               </h2>
               <p className="text-xs text-muted-foreground">
                 {primaryAngleTitle
-                  ? `Ranks contacts against "${primaryAngleTitle}".`
+                  ? `Ranks contacts already in your directory against "${primaryAngleTitle}" — it doesn't find new ones. Empty directory? Use the search below to discover contacts first.`
                   : "Set a primary angle on Ideation first to get a scored ranking."}
               </p>
             </div>

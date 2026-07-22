@@ -50,6 +50,7 @@ export function ContactTable({
     outletName?: string;
     company: CompanySummary | null;
     people: DiscoveredPerson[];
+    usedPaidDiscovery: boolean;
   } | null>(null);
 
   const trimmedQ = q.trim();
@@ -73,6 +74,7 @@ export function ContactTable({
         outletName: res.outletName,
         company: res.company,
         people: res.people,
+        usedPaidDiscovery: res.usedPaidDiscovery,
       });
     });
   }
@@ -255,6 +257,7 @@ export function ContactTable({
         outletName={results.outletName}
         company={results.company}
         people={results.people}
+        usedPaidDiscovery={results.usedPaidDiscovery}
         onClose={() => setResults(null)}
       />
     )}
