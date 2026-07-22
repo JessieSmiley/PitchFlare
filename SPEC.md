@@ -17,7 +17,7 @@ PitchFlare helps PR professionals run end-to-end campaigns through six guided ph
 1. **AI pitch strategy engine** — produces actual angles, hooks, and positioning (not fill-in-the-blank templates).
 2. **Multi-channel contact lists** — journalists, podcasters, and influencers as first-class entities, not just press contacts.
 3. **Full campaign workflow** — one tool from strategy to ROI report; no bolt-on monitoring/reporting suites.
-4. **Transparent BYO-account data partners** — Hunter.io, Apollo, Podchaser, SparkToro integrations use the user's own credentials for sourcing/enrichment; no opaque reseller markup.
+4. **Transparent BYO-account data partners** — Hunter.io, Apollo, Podchaser, SparkToro integrations use the user's own credentials for sourcing/enrichment; no opaque reseller markup. Partners power two operations on a shared provider interface: **enrichment** (fill gaps on a known contact) and **discovery** (`discover()` — search a partner for *new* contacts from the Targets search bar; Hunter's `domain-search` ships first).
 
 ---
 
@@ -127,6 +127,7 @@ Prove the work.
 | Podcast monitoring | **Podchaser** (BYO-account) | Aligns with BYO partner model. |
 | Social monitoring | **SparkToro + X/LinkedIn public APIs** | BYO-account for SparkToro. |
 | Contact enrichment | **Hunter.io, Apollo** (BYO-account) | Aligns with BYO partner model. |
+| Contact discovery | **Tiered, cache-first waterfall** (`lib/intelligence/`) | Three services — Media, Company, Contact Intelligence — with only Contact spending paid credits. Order: own DB → cache → free Tier-1 (website crawl + Schema.org + RSS bylines + Google News + LinkedIn company URL) → email permutation + MX/syntax/role heuristic verify → paid providers (Hunter, Apollo, Prospeo, and Dropcontact live behind one interface — sync and async; PDL still stubbed). Discovery runs the fast sync providers per-person; async Dropcontact is offered on the single-contact drawer path. Public company/media data cached globally cross-tenant; paid contact data cached per-account so one tenant's BYO credits never serve another. Caching is where the 50–80% API-spend reduction comes from. |
 | Testing | **Vitest** + **Playwright** | Unit + E2E. |
 | Deployment | **Vercel** | Confirmed. |
 

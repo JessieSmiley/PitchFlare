@@ -45,6 +45,8 @@ enum IntegrationPartner {
   APOLLO
   PODCHASER
   SPARKTORO
+  PROSPEO
+  DROPCONTACT
   WIRE
   RESEND_DOMAIN
 }
@@ -114,6 +116,31 @@ enum ContactFieldSource {
   AUTO_SCRAPED
   USER_ADDED
   DATA_PARTNER
+}
+
+/// How a contact email was obtained, ordered cheapest → most expensive. The
+/// discovery waterfall records this so we can prove where a value came from
+/// and bias future lookups toward the free tiers.
+enum EmailSource {
+  DATABASE
+  CACHE
+  PERMUTATION
+  HUNTER
+  APOLLO
+  PROSPEO
+  DROPCONTACT
+  PEOPLE_DATA_LABS
+}
+
+/// Verification confidence for a discovered email. Heuristic tiers (MX +
+/// syntax + role) sit below what a paid verifier would return; a paid
+/// verifier can later upgrade UNKNOWN/GUESSED rows to VALID.
+enum EmailVerifyStatus {
+  VALID
+  ACCEPT_ALL
+  UNKNOWN
+  INVALID
+  GUESSED
 }
 
 enum RecentWorkSource {
@@ -252,6 +279,7 @@ model Account {
   integrations  Integration[]
   aiUsageLogs   AiUsageLog[]
   auditLogs     AuditLog[]
+  emailDiscoveries EmailDiscovery[]
 
   @@index([plan])
 }
@@ -730,6 +758,78 @@ model RecentWork {
 
   @@unique([contactId, url])
   @@index([contactId, publishedAt])
+}
+
+/// Global, cross-tenant cache of PUBLIC Company Intelligence assembled from
+/// free Tier-1 sources (website crawl, Schema.org, press pages, news). Keyed
+/// by domain so "OpenAI" is crawled once and served to every account. Holds
+/// no paid contact data — email/phone live in EmailDiscovery (per-account).
+model CompanyProfile {
+  id          String   @id @default(cuid())
+  domain      String   @unique
+  name        String
+  description String?
+  linkedinUrl String?
+  /// Structured funding rounds/total, best-effort from sources.
+  funding     Json?
+  /// [{ name, title, url? }] executives surfaced from Schema.org/press.
+  executives  Json?
+  /// { twitter?, linkedin?, youtube?, ... } public profile URLs.
+  socials     Json?
+  /// Discovered press/newsroom page URLs.
+  pressPages  String[] @default([])
+  /// Discovered RSS/Atom feed URLs.
+  rssFeeds    String[] @default([])
+  /// Recent press releases / coverage [{ title, url, publishedAt? }].
+  pressReleases Json?
+  /// Podcast appearances / awards, best-effort [{ title, url? }].
+  podcasts    Json?
+  awards      Json?
+  refreshedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@index([refreshedAt])
+}
+
+/// Global, cross-tenant cache of raw Tier-1 fetches (a crawled page, a news
+/// query, an RSS pull) so repeated searches never re-hit the network. Public
+/// data only. `key` is a stable "kind:identifier" string; `expiresAt` lets
+/// each source pick its own freshness window.
+model SourceCache {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  kind      String
+  payload   Json
+  fetchedAt DateTime @default(now())
+  expiresAt DateTime?
+
+  @@index([kind])
+  @@index([expiresAt])
+}
+
+/// PER-ACCOUNT cache of Contact Intelligence (email/phone). Scoped to the
+/// account because paid lookups spend that account's own BYO partner credits
+/// — one tenant's paid result must not silently serve another. Permutation +
+/// heuristic-verified guesses are cached here too so we don't recompute them.
+model EmailDiscovery {
+  id         String            @id @default(cuid())
+  accountId  String
+  /// Normalized person identity (lowercased "first last").
+  personKey  String
+  domain     String
+  email      String?
+  status     EmailVerifyStatus @default(UNKNOWN)
+  source     EmailSource       @default(PERMUTATION)
+  confidence Int?
+  phone      String?
+  verifiedAt DateTime?
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, personKey, domain])
+  @@index([accountId])
 }
 
 /// AI-generated advice for how to pitch a given contact. Cached per contact

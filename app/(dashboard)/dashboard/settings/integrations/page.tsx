@@ -10,17 +10,28 @@ import {
 export const dynamic = "force-dynamic";
 
 const META: Record<
-  "HUNTER" | "APOLLO" | "PODCHASER" | "SPARKTORO",
+  "HUNTER" | "APOLLO" | "PODCHASER" | "SPARKTORO" | "PROSPEO" | "DROPCONTACT",
   { fieldCoverage: string[]; costNote: string }
 > = {
+  DROPCONTACT: {
+    fieldCoverage: ["email", "phone", "confidence"],
+    costNote:
+      "Credits count against your own Dropcontact plan. Dropcontact enriches asynchronously — a lookup submits a job and we poll it for a few seconds before returning.",
+  },
   HUNTER: {
     fieldCoverage: ["email", "title", "outletName", "linkedinUrl", "twitterUrl", "phone", "confidence"],
     costNote:
       "Credits count against your own Hunter.io plan. We store your key encrypted and never use it beyond your own enrichment requests.",
   },
+  PROSPEO: {
+    fieldCoverage: ["email", "confidence"],
+    costNote:
+      "Credits count against your own Prospeo plan. Used as a fallback in the discovery waterfall — only called when free sources and Hunter don't resolve an email.",
+  },
   APOLLO: {
-    fieldCoverage: ["email", "title", "outletName", "linkedinUrl", "twitterUrl"],
-    costNote: "Not yet connected — ships in a later release.",
+    fieldCoverage: ["email", "title", "outletName", "linkedinUrl"],
+    costNote:
+      "Credits count against your own Apollo plan. Locked emails (Apollo's email_not_unlocked placeholder) are dropped rather than saved, so you never get a junk address.",
   },
   PODCHASER: {
     fieldCoverage: ["hostName", "showName", "showCategory", "episodeCount"],
@@ -37,7 +48,16 @@ export default async function IntegrationsPage() {
   const integrations = await db.integration.findMany({
     where: {
       accountId: tenant.account.id,
-      partner: { in: ["HUNTER", "APOLLO", "PODCHASER", "SPARKTORO"] },
+      partner: {
+        in: [
+          "HUNTER",
+          "APOLLO",
+          "PODCHASER",
+          "SPARKTORO",
+          "PROSPEO",
+          "DROPCONTACT",
+        ],
+      },
     },
   });
 

@@ -2,8 +2,16 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ContactTable, type ContactRow } from "./contact-table";
-import { ContactDrawer, type ContactDetail } from "./contact-drawer";
+import {
+  ContactTable,
+  type ContactRow,
+  type DiscoveryConfig,
+} from "./contact-table";
+import {
+  ContactDrawer,
+  type ContactDetail,
+  type EnrichPartner,
+} from "./contact-drawer";
 import { buildTargetListFromAngle } from "@/lib/contacts/actions";
 
 export function TargetsShell({
@@ -11,11 +19,15 @@ export function TargetsShell({
   primaryAngleTitle,
   contacts,
   contactDetails,
+  discovery,
+  enrichPartners,
 }: {
   campaignId: string | null;
   primaryAngleTitle: string | null;
   contacts: ContactRow[];
   contactDetails: Record<string, ContactDetail>;
+  discovery: DiscoveryConfig | null;
+  enrichPartners: EnrichPartner[];
 }) {
   const router = useRouter();
   const [selected, setSelected] = useState<string | null>(null);
@@ -66,12 +78,17 @@ export function TargetsShell({
           <p className="text-xs text-muted-foreground">{buildMessage}</p>
         )}
 
-        <ContactTable contacts={contacts} onSelect={setSelected} />
+        <ContactTable
+          contacts={contacts}
+          onSelect={setSelected}
+          discovery={discovery}
+        />
       </div>
 
       <ContactDrawer
         contact={selected ? contactDetails[selected] ?? null : null}
         onClose={() => setSelected(null)}
+        enrichPartners={enrichPartners}
       />
     </>
   );

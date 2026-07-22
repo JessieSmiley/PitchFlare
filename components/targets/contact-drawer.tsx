@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { enrichContactWithPartner } from "@/lib/integrations/actions";
@@ -18,6 +19,12 @@ export type ContactDetail = {
   recentWork: Array<{ title: string; url: string; source: string }>;
 };
 
+/** A connected email-enrichment partner the drawer can call per-contact. */
+export type EnrichPartner = {
+  partner: "HUNTER" | "PROSPEO" | "APOLLO" | "DROPCONTACT";
+  label: string;
+};
+
 const SOURCE_LABEL: Record<string, string> = {
   AUTO_SCRAPED: "Auto-scraped",
   USER_ADDED: "You added",
@@ -33,28 +40,35 @@ const SOURCE_TONE: Record<string, string> = {
 export function ContactDrawer({
   contact,
   onClose,
+  enrichPartners = [],
 }: {
   contact: ContactDetail | null;
   onClose: () => void;
+  enrichPartners?: EnrichPartner[];
 }) {
   const router = useRouter();
   const [enriching, startEnrich] = useTransition();
+  const [pendingPartner, setPendingPartner] = useState<string | null>(null);
   const [enrichMessage, setEnrichMessage] = useState<string | null>(null);
 
   if (!contact) return null;
 
-  const runEnrich = (partner: "HUNTER") => {
+  const runEnrich = (partner: EnrichPartner) => {
     setEnrichMessage(null);
+    setPendingPartner(partner.partner);
     startEnrich(async () => {
       const res = await enrichContactWithPartner({
         contactId: contact.id,
-        partner,
+        partner: partner.partner,
       });
       if (!res.ok) setEnrichMessage(res.error);
       else {
-        setEnrichMessage(`Wrote ${res.written} field${res.written === 1 ? "" : "s"} from ${partner}.`);
+        setEnrichMessage(
+          `Wrote ${res.written} field${res.written === 1 ? "" : "s"} from ${partner.label}.`,
+        );
         router.refresh();
       }
+      setPendingPartner(null);
     });
   };
   return (
@@ -180,14 +194,31 @@ export function ContactDrawer({
         )}
 
         <section className="mt-6 flex flex-wrap items-center gap-2 border-t border-border pt-4">
-          <button
-            type="button"
-            onClick={() => runEnrich("HUNTER")}
-            disabled={enriching}
-            className="rounded-lg bg-brand-pink px-3 py-1 text-xs text-white hover:opacity-90 disabled:opacity-60"
-          >
-            {enriching ? "Enriching…" : "✦ Enrich with Hunter"}
-          </button>
+          {enrichPartners.length > 0 ? (
+            enrichPartners.map((p) => (
+              <button
+                key={p.partner}
+                type="button"
+                onClick={() => runEnrich(p)}
+                disabled={enriching}
+                className="rounded-lg bg-brand-pink px-3 py-1 text-xs text-white hover:opacity-90 disabled:opacity-60"
+              >
+                {enriching && pendingPartner === p.partner
+                  ? "Enriching…"
+                  : `✦ Enrich with ${p.label}`}
+              </button>
+            ))
+          ) : (
+            <span className="text-xs text-muted-foreground">
+              <Link
+                href="/dashboard/settings/integrations"
+                className="text-brand-pink hover:underline"
+              >
+                Connect Hunter or Prospeo
+              </Link>{" "}
+              to enrich this contact&apos;s email and details.
+            </span>
+          )}
           {enrichMessage && (
             <span className="text-xs text-muted-foreground">
               {enrichMessage}
