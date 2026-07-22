@@ -4,9 +4,10 @@ import { db } from "@/lib/db";
 import { AddContactForm } from "@/components/targets/add-contact-form";
 import { TargetsShell } from "@/components/targets/targets-shell";
 import { CampaignSwitcher } from "@/components/strategize/campaign-switcher";
-import { PROVIDERS } from "@/lib/providers";
+import { PROVIDERS, providerFor } from "@/lib/providers";
 import { scoreContactsForCampaign } from "@/lib/contacts/match";
 import type { DiscoveryConfig } from "@/components/targets/contact-table";
+import type { EnrichPartner } from "@/components/targets/contact-drawer";
 import type { ContactRow } from "@/components/targets/contact-table";
 import type { ContactDetail } from "@/components/targets/contact-drawer";
 
@@ -67,26 +68,35 @@ export default async function TargetsPage({
     }),
   ]);
 
-  // Discovery: expose the first discovery-capable partner and whether the
-  // account has connected it, so the search bar can offer "search this
-  // partner for new contacts" (or link to Settings when not connected).
+  // Which partners has this account connected? Drives both the discovery
+  // search affordance (Hunter) and the per-contact "Enrich" buttons in the
+  // drawer (any live email partner).
+  const connectedIntegrations = await db.integration.findMany({
+    where: {
+      accountId: tenant.account.id,
+      partner: { in: ["HUNTER", "PROSPEO", "APOLLO", "PODCHASER", "SPARKTORO"] },
+      status: "CONNECTED",
+    },
+    select: { partner: true },
+  });
+  const connectedPartners = new Set(
+    connectedIntegrations.map((i) => i.partner),
+  );
+
   const discoveryProvider = PROVIDERS.find((p) => p.supportsDiscovery);
-  let discovery: DiscoveryConfig | null = null;
-  if (discoveryProvider) {
-    const connected = await db.integration.findFirst({
-      where: {
-        accountId: tenant.account.id,
-        partner: discoveryProvider.partner,
-        status: "CONNECTED",
-      },
-      select: { id: true },
-    });
-    discovery = {
-      partner: discoveryProvider.partner as DiscoveryConfig["partner"],
-      label: discoveryProvider.label,
-      connected: Boolean(connected),
-    };
-  }
+  const discovery: DiscoveryConfig | null = discoveryProvider
+    ? {
+        partner: discoveryProvider.partner as DiscoveryConfig["partner"],
+        label: discoveryProvider.label,
+        connected: connectedPartners.has(discoveryProvider.partner),
+      }
+    : null;
+
+  // Live email-enrichment partners the drawer can offer (excludes
+  // discovery-only / non-email stubs like Podchaser/SparkToro).
+  const enrichPartners: EnrichPartner[] = (["HUNTER", "PROSPEO"] as const)
+    .filter((p) => connectedPartners.has(p))
+    .map((p) => ({ partner: p, label: providerFor(p)?.label ?? p }));
 
   // Score contacts against every angle the user selected on Ideation (they
   // may target different audiences), so the table surfaces a "Match" column
@@ -206,6 +216,7 @@ export default async function TargetsPage({
           contacts={rows}
           contactDetails={details}
           discovery={discovery}
+          enrichPartners={enrichPartners}
         />
       </div>
     </div>
