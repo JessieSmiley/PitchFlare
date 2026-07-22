@@ -2,7 +2,11 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ContactTable, type ContactRow } from "./contact-table";
+import {
+  ContactTable,
+  type ContactRow,
+  type DiscoveryConfig,
+} from "./contact-table";
 import { ContactDrawer, type ContactDetail } from "./contact-drawer";
 import { buildTargetListFromAngle } from "@/lib/contacts/actions";
 
@@ -11,11 +15,13 @@ export function TargetsShell({
   primaryAngleTitle,
   contacts,
   contactDetails,
+  discovery,
 }: {
   campaignId: string | null;
   primaryAngleTitle: string | null;
   contacts: ContactRow[];
   contactDetails: Record<string, ContactDetail>;
+  discovery: DiscoveryConfig | null;
 }) {
   const router = useRouter();
   const [selected, setSelected] = useState<string | null>(null);
@@ -66,7 +72,11 @@ export function TargetsShell({
           <p className="text-xs text-muted-foreground">{buildMessage}</p>
         )}
 
-        <ContactTable contacts={contacts} onSelect={setSelected} />
+        <ContactTable
+          contacts={contacts}
+          onSelect={setSelected}
+          discovery={discovery}
+        />
       </div>
 
       <ContactDrawer

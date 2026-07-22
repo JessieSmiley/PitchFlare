@@ -4,7 +4,9 @@ import { db } from "@/lib/db";
 import { AddContactForm } from "@/components/targets/add-contact-form";
 import { TargetsShell } from "@/components/targets/targets-shell";
 import { CampaignSwitcher } from "@/components/strategize/campaign-switcher";
+import { PROVIDERS } from "@/lib/providers";
 import { scoreContactsForCampaign } from "@/lib/contacts/match";
+import type { DiscoveryConfig } from "@/components/targets/contact-table";
 import type { ContactRow } from "@/components/targets/contact-table";
 import type { ContactDetail } from "@/components/targets/contact-drawer";
 
@@ -64,6 +66,27 @@ export default async function TargetsPage({
       },
     }),
   ]);
+
+  // Discovery: expose the first discovery-capable partner and whether the
+  // account has connected it, so the search bar can offer "search this
+  // partner for new contacts" (or link to Settings when not connected).
+  const discoveryProvider = PROVIDERS.find((p) => p.supportsDiscovery);
+  let discovery: DiscoveryConfig | null = null;
+  if (discoveryProvider) {
+    const connected = await db.integration.findFirst({
+      where: {
+        accountId: tenant.account.id,
+        partner: discoveryProvider.partner,
+        status: "CONNECTED",
+      },
+      select: { id: true },
+    });
+    discovery = {
+      partner: discoveryProvider.partner as DiscoveryConfig["partner"],
+      label: discoveryProvider.label,
+      connected: Boolean(connected),
+    };
+  }
 
   // Score contacts against every angle the user selected on Ideation (they
   // may target different audiences), so the table surfaces a "Match" column
@@ -182,6 +205,7 @@ export default async function TargetsPage({
           primaryAngleTitle={campaign?.primaryAngle?.title ?? null}
           contacts={rows}
           contactDetails={details}
+          discovery={discovery}
         />
       </div>
     </div>

@@ -1,6 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import Link from "next/link";
+import { useMemo, useState, useTransition } from "react";
+import { discoverContacts } from "@/lib/contacts/discover";
+import type { DiscoveredPerson } from "@/lib/providers/types";
+import { DiscoverPanel } from "./discover-panel";
 
 export type ContactRow = {
   id: string;
@@ -11,6 +15,12 @@ export type ContactRow = {
   outletName: string | null;
   beats: string[];
   matchScore: number | null;
+};
+
+export type DiscoveryConfig = {
+  partner: "HUNTER" | "APOLLO" | "PODCHASER" | "SPARKTORO";
+  label: string;
+  connected: boolean;
 };
 
 const KIND_LABELS: Record<ContactRow["kind"], string> = {
@@ -24,12 +34,46 @@ const KIND_LABELS: Record<ContactRow["kind"], string> = {
 export function ContactTable({
   contacts,
   onSelect,
+  discovery,
 }: {
   contacts: ContactRow[];
   onSelect: (id: string) => void;
+  discovery?: DiscoveryConfig | null;
 }) {
   const [filter, setFilter] = useState<ContactRow["kind"] | "ALL">("ALL");
   const [q, setQ] = useState("");
+  const [searching, startSearch] = useTransition();
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [results, setResults] = useState<{
+    query: string;
+    outletName?: string;
+    people: DiscoveredPerson[];
+  } | null>(null);
+
+  const trimmedQ = q.trim();
+  // Only offer partner search once the query looks like an outlet/company
+  // name (the local filter already covers substrings of loaded contacts).
+  const canOfferDiscovery = Boolean(discovery) && trimmedQ.length >= 2;
+
+  function runDiscovery() {
+    if (!discovery?.connected || trimmedQ.length < 2) return;
+    setSearchError(null);
+    startSearch(async () => {
+      const res = await discoverContacts({
+        partner: discovery.partner,
+        query: trimmedQ,
+      });
+      if (!res.ok) {
+        setSearchError(res.error);
+        return;
+      }
+      setResults({
+        query: trimmedQ,
+        outletName: res.outletName,
+        people: res.people,
+      });
+    });
+  }
 
   const visible = useMemo(() => {
     return contacts.filter((c) => {
@@ -44,6 +88,7 @@ export function ContactTable({
   }, [contacts, filter, q]);
 
   return (
+    <>
     <div className="rounded-lg border border-border bg-card">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-3">
         <div className="flex gap-1 rounded-full bg-muted p-0.5 text-xs">
@@ -72,6 +117,42 @@ export function ContactTable({
           className="w-64 rounded-md border border-border bg-white px-3 py-1.5 text-xs"
         />
       </div>
+
+      {canOfferDiscovery && discovery && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-border bg-muted/40 px-3 py-2 text-xs">
+          {discovery.connected ? (
+            <>
+              <button
+                type="button"
+                onClick={runDiscovery}
+                disabled={searching}
+                className="rounded-md bg-brand-pink px-3 py-1 text-white hover:opacity-90 disabled:opacity-60"
+              >
+                {searching
+                  ? `Searching ${discovery.label}…`
+                  : `🔍 Search ${discovery.label} for contacts at “${trimmedQ}”`}
+              </button>
+              <span className="text-muted-foreground">
+                Pulls in new contacts · uses your {discovery.label} credits
+              </span>
+            </>
+          ) : (
+            <span className="text-muted-foreground">
+              Not finding them?{" "}
+              <Link
+                href="/dashboard/settings/integrations"
+                className="text-brand-pink hover:underline"
+              >
+                Connect {discovery.label}
+              </Link>{" "}
+              to search for new contacts at “{trimmedQ}”.
+            </span>
+          )}
+          {searchError && (
+            <span className="text-destructive">{searchError}</span>
+          )}
+        </div>
+      )}
 
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-sm">
@@ -165,5 +246,16 @@ export function ContactTable({
         </table>
       </div>
     </div>
+
+    {results && discovery && (
+      <DiscoverPanel
+        providerLabel={discovery.label}
+        query={results.query}
+        outletName={results.outletName}
+        people={results.people}
+        onClose={() => setResults(null)}
+      />
+    )}
+    </>
   );
 }

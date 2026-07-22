@@ -17,7 +17,7 @@ PitchFlare helps PR professionals run end-to-end campaigns through six guided ph
 1. **AI pitch strategy engine** — produces actual angles, hooks, and positioning (not fill-in-the-blank templates).
 2. **Multi-channel contact lists** — journalists, podcasters, and influencers as first-class entities, not just press contacts.
 3. **Full campaign workflow** — one tool from strategy to ROI report; no bolt-on monitoring/reporting suites.
-4. **Transparent BYO-account data partners** — Hunter.io, Apollo, Podchaser, SparkToro integrations use the user's own credentials for sourcing/enrichment; no opaque reseller markup.
+4. **Transparent BYO-account data partners** — Hunter.io, Apollo, Podchaser, SparkToro integrations use the user's own credentials for sourcing/enrichment; no opaque reseller markup. Partners power two operations on a shared provider interface: **enrichment** (fill gaps on a known contact) and **discovery** (`discover()` — search a partner for *new* contacts from the Targets search bar; Hunter's `domain-search` ships first).
 
 ---
 
