@@ -56,7 +56,7 @@ export type CompanyIntel = {
   fromCache: boolean;
 };
 
-/** Compact, client-safe slice of CompanyIntel for the discovery UI. */
+/** Client-safe slice of CompanyIntel for the discovery + company UI. */
 export type CompanySummary = {
   name: string;
   domain?: string;
@@ -64,8 +64,11 @@ export type CompanySummary = {
   linkedinUrl?: string;
   socials?: Record<string, string>;
   funding?: FundingFact[];
+  executives?: PersonRef[];
   awards?: LinkRef[];
+  podcasts?: LinkRef[];
   pressReleases?: LinkRef[];
+  pressPages?: string[];
 };
 
 // ---------------------------------------------------------------------------

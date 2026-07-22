@@ -68,8 +68,11 @@ export async function discoverContactsWaterfall(
         linkedinUrl: companyIntel.linkedinUrl,
         socials: companyIntel.socials,
         funding: companyIntel.funding,
+        executives: companyIntel.executives?.slice(0, 12),
         awards: companyIntel.awards,
-        pressReleases: companyIntel.pressReleases?.slice(0, 5),
+        podcasts: companyIntel.podcasts,
+        pressReleases: companyIntel.pressReleases?.slice(0, 8),
+        pressPages: companyIntel.pressPages?.slice(0, 6),
       }
     : null;
 

@@ -7,7 +7,10 @@ import { requireTenant } from "@/lib/auth/tenant";
 import { decryptSecret } from "@/lib/crypto";
 import { hunter } from "@/lib/providers";
 import { discoverContactsWaterfall } from "@/lib/intelligence/waterfall";
-import { hunterResolver } from "@/lib/intelligence/contact/paid";
+import {
+  hunterResolver,
+  prospeoResolver,
+} from "@/lib/intelligence/contact/paid";
 import type { PaidResolver } from "@/lib/intelligence/contact";
 import type { CompanySummary } from "@/lib/intelligence/types";
 import type { DiscoveredPerson } from "@/lib/providers/types";
@@ -53,13 +56,20 @@ export async function discoverContacts(
   const tenant = await requireTenant();
   const accountId = tenant.account.id;
 
-  // Wire the paid tier only if Hunter is connected. Everything else runs on
-  // free sources + cache.
-  const hunterIntegration = await db.integration.findFirst({
-    where: { accountId, partner: "HUNTER", status: "CONNECTED" },
+  // Wire the paid tier from whatever email-capable partners are connected.
+  // Everything else runs on free sources + cache. Resolvers are ordered
+  // cheapest-first (Hunter, then Prospeo) so the waterfall stops at the
+  // first hit.
+  const paidIntegrations = await db.integration.findMany({
+    where: {
+      accountId,
+      partner: { in: ["HUNTER", "PROSPEO"] },
+      status: "CONNECTED",
+    },
   });
+  const byPartner = new Map(paidIntegrations.map((i) => [i.partner, i]));
 
-  let paidResolvers: PaidResolver[] | undefined;
+  const paidResolvers: PaidResolver[] = [];
   let paidDiscovery:
     | ((q: {
         name?: string;
@@ -67,9 +77,11 @@ export async function discoverContacts(
       }) => Promise<{ people: DiscoveredPerson[]; domain?: string }>)
     | undefined;
 
+  const hunterIntegration = byPartner.get("HUNTER");
   if (hunterIntegration) {
     const key = decryptSecret(hunterIntegration.encryptedCredentials);
-    paidResolvers = [hunterResolver(key)];
+    paidResolvers.push(hunterResolver(key));
+    // Hunter is the only connected partner that can also *discover* people.
     paidDiscovery = async (q) => {
       try {
         const res = await hunter.discover!(key, {
@@ -94,6 +106,12 @@ export async function discoverContacts(
         return { people: [] };
       }
     };
+  }
+
+  const prospeoIntegration = byPartner.get("PROSPEO");
+  if (prospeoIntegration) {
+    const key = decryptSecret(prospeoIntegration.encryptedCredentials);
+    paidResolvers.push(prospeoResolver(key));
   }
 
   const outcome = await discoverContactsWaterfall(

@@ -1,4 +1,4 @@
-import { hunter } from "@/lib/providers";
+import { hunter, prospeo } from "@/lib/providers";
 import type { PaidResolver } from "./index";
 import type { EmailCandidate, PersonQuery } from "../types";
 
@@ -44,9 +44,34 @@ export function apolloResolver(_apiKey: string): PaidResolver {
   return { run: async () => null };
 }
 
-/** Stub — Prospeo email-finder. */
-export function prospeoResolver(_apiKey: string): PaidResolver {
-  return { run: async () => null };
+/** Prospeo enrich-person email finder (live). */
+export function prospeoResolver(apiKey: string): PaidResolver {
+  return {
+    async run(person: PersonQuery): Promise<EmailCandidate | null> {
+      const input = {
+        domain: person.domain,
+        fullName: person.fullName,
+        firstName: person.firstName,
+        lastName: person.lastName,
+        outlet: person.outletName,
+      };
+      if (!prospeo.supports(input)) return null;
+      const result = await prospeo.enrich(apiKey, input);
+      const email = result.fields.find((f) => f.key === "email")?.value;
+      if (!email) return null;
+      const scoreStr = result.fields.find((f) => f.key === "confidence")?.value;
+      const confidence = scoreStr ? Number(scoreStr) : undefined;
+      return {
+        email,
+        source: "PROSPEO",
+        status:
+          typeof confidence === "number" && confidence >= 90
+            ? "VALID"
+            : "UNKNOWN",
+        confidence,
+      };
+    },
+  };
 }
 
 /** Stub — Dropcontact enrichment/verification. */

@@ -13,7 +13,7 @@ type ActionResult<T = unknown> =
   | { ok: false; error: string };
 
 const ConnectInput = z.object({
-  partner: z.enum(["HUNTER", "APOLLO", "PODCHASER", "SPARKTORO"]),
+  partner: z.enum(["HUNTER", "APOLLO", "PODCHASER", "SPARKTORO", "PROSPEO"]),
   apiKey: z.string().trim().min(8).max(500),
   label: z.string().trim().max(60).optional(),
 });
@@ -96,7 +96,7 @@ export async function disconnectIntegration(input: {
 
 const EnrichInput = z.object({
   contactId: z.string().min(1),
-  partner: z.enum(["HUNTER", "APOLLO", "PODCHASER", "SPARKTORO"]),
+  partner: z.enum(["HUNTER", "APOLLO", "PODCHASER", "SPARKTORO", "PROSPEO"]),
 });
 
 /**

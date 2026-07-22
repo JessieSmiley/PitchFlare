@@ -45,6 +45,7 @@ enum IntegrationPartner {
   APOLLO
   PODCHASER
   SPARKTORO
+  PROSPEO
   WIRE
   RESEND_DOMAIN
 }

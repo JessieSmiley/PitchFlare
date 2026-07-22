@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { addDiscoveredContacts } from "@/lib/contacts/discover";
 import type { DiscoveredPerson } from "@/lib/providers/types";
 import type { CompanySummary } from "@/lib/intelligence/types";
+import { CompanyPanel } from "./company-panel";
 
 function hasCompanyFacts(c: CompanySummary): boolean {
   return Boolean(
@@ -60,6 +61,7 @@ export function DiscoverPanel({
   const router = useRouter();
   const [saving, startSave] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
+  const [showCompany, setShowCompany] = useState(false);
   // Pre-select every candidate that came with an email — those are the
   // immediately useful ones to add.
   const [selected, setSelected] = useState<Set<number>>(
@@ -93,6 +95,7 @@ export function DiscoverPanel({
   }
 
   return (
+    <>
     <div
       className="fixed inset-0 z-40 flex justify-end bg-black/20"
       onClick={onClose}
@@ -141,6 +144,13 @@ export function DiscoverPanel({
                     {k}
                   </a>
                 ))}
+              <button
+                type="button"
+                onClick={() => setShowCompany(true)}
+                className="ml-auto shrink-0 rounded-md border border-border px-2 py-1 text-[11px] text-brand-navy hover:bg-accent"
+              >
+                Full profile →
+              </button>
             </div>
             {company.description && (
               <p className="mt-1 text-muted-foreground">
@@ -241,5 +251,13 @@ export function DiscoverPanel({
         </footer>
       </aside>
     </div>
+
+    {showCompany && company && (
+      <CompanyPanel
+        company={company}
+        onClose={() => setShowCompany(false)}
+      />
+    )}
+    </>
   );
 }

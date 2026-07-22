@@ -8,7 +8,7 @@ import {
 } from "@/lib/integrations/actions";
 
 export type PartnerCard = {
-  partner: "HUNTER" | "APOLLO" | "PODCHASER" | "SPARKTORO";
+  partner: "HUNTER" | "APOLLO" | "PODCHASER" | "SPARKTORO" | "PROSPEO";
   label: string;
   supported: boolean;
   fieldCoverage: string[];
