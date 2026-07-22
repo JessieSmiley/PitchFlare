@@ -8,7 +8,13 @@ import {
 } from "@/lib/integrations/actions";
 
 export type PartnerCard = {
-  partner: "HUNTER" | "APOLLO" | "PODCHASER" | "SPARKTORO" | "PROSPEO";
+  partner:
+    | "HUNTER"
+    | "APOLLO"
+    | "PODCHASER"
+    | "SPARKTORO"
+    | "PROSPEO"
+    | "DROPCONTACT";
   label: string;
   supported: boolean;
   fieldCoverage: string[];

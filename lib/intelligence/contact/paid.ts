@@ -1,4 +1,4 @@
-import { hunter, prospeo } from "@/lib/providers";
+import { hunter, prospeo, dropcontact } from "@/lib/providers";
 import type { PaidResolver } from "./index";
 import type { EmailCandidate, PersonQuery } from "../types";
 
@@ -74,9 +74,39 @@ export function prospeoResolver(apiKey: string): PaidResolver {
   };
 }
 
-/** Stub — Dropcontact enrichment/verification. */
-export function dropcontactResolver(_apiKey: string): PaidResolver {
-  return { run: async () => null };
+/**
+ * Dropcontact enrichment (live, async). Note: Dropcontact submits a job and
+ * polls, so a single lookup can take several seconds — fine for the
+ * per-contact drawer, but callers that resolve many people in a loop (bulk
+ * discovery) should leave it out of the chain to avoid stalling the list.
+ */
+export function dropcontactResolver(apiKey: string): PaidResolver {
+  return {
+    async run(person: PersonQuery): Promise<EmailCandidate | null> {
+      const input = {
+        domain: person.domain,
+        fullName: person.fullName,
+        firstName: person.firstName,
+        lastName: person.lastName,
+        outlet: person.outletName,
+      };
+      if (!dropcontact.supports(input)) return null;
+      const result = await dropcontact.enrich(apiKey, input);
+      const email = result.fields.find((f) => f.key === "email")?.value;
+      if (!email) return null;
+      const scoreStr = result.fields.find((f) => f.key === "confidence")?.value;
+      const confidence = scoreStr ? Number(scoreStr) : undefined;
+      return {
+        email,
+        source: "DROPCONTACT",
+        status:
+          typeof confidence === "number" && confidence >= 90
+            ? "VALID"
+            : "UNKNOWN",
+        confidence,
+      };
+    },
+  };
 }
 
 /** Stub — People Data Labs person enrichment. */

@@ -21,7 +21,7 @@ export type ContactDetail = {
 
 /** A connected email-enrichment partner the drawer can call per-contact. */
 export type EnrichPartner = {
-  partner: "HUNTER" | "PROSPEO";
+  partner: "HUNTER" | "PROSPEO" | "APOLLO" | "DROPCONTACT";
   label: string;
 };
 

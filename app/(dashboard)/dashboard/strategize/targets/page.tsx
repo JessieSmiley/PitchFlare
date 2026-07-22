@@ -74,7 +74,9 @@ export default async function TargetsPage({
   const connectedIntegrations = await db.integration.findMany({
     where: {
       accountId: tenant.account.id,
-      partner: { in: ["HUNTER", "PROSPEO", "APOLLO", "PODCHASER", "SPARKTORO"] },
+      partner: {
+        in: ["HUNTER", "PROSPEO", "APOLLO", "PODCHASER", "SPARKTORO", "DROPCONTACT"],
+      },
       status: "CONNECTED",
     },
     select: { partner: true },
@@ -94,7 +96,9 @@ export default async function TargetsPage({
 
   // Live email-enrichment partners the drawer can offer (excludes
   // discovery-only / non-email stubs like Podchaser/SparkToro).
-  const enrichPartners: EnrichPartner[] = (["HUNTER", "PROSPEO"] as const)
+  const enrichPartners: EnrichPartner[] = (
+    ["HUNTER", "PROSPEO", "DROPCONTACT"] as const
+  )
     .filter((p) => connectedPartners.has(p))
     .map((p) => ({ partner: p, label: providerFor(p)?.label ?? p }));
 

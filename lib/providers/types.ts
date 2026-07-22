@@ -41,6 +41,15 @@ export type EnrichResult = {
   raw?: unknown;
 };
 
+/** Handle for an async enrichment job (submit → poll). */
+export type EnrichJob = { jobId: string };
+
+/** One poll of an async enrichment job. */
+export type EnrichPoll =
+  | { status: "pending" }
+  | { status: "done"; result: EnrichResult }
+  | { status: "error"; error: string };
+
 /**
  * Discovery inputs. Unlike enrichment (which takes one known contact and
  * fills gaps), discovery takes a free-text query — usually an outlet or
@@ -119,9 +128,20 @@ export interface DataProvider {
   authenticate(apiKey: string): Promise<{ ok: boolean; error?: string }>;
   /**
    * Return enriched fields for the caller. Throws on network or auth
-   * failure so the calling action can surface the error.
+   * failure so the calling action can surface the error. For async
+   * providers this is implemented in terms of submit/poll (see
+   * runProviderEnrich) so every caller can treat enrichment uniformly.
    */
   enrich(apiKey: string, input: LookupInput): Promise<EnrichResult>;
+  /**
+   * Async providers (e.g. Dropcontact) resolve enrichment as a background
+   * job: `submitEnrich` starts it and returns a job id, then `pollEnrich`
+   * is called until the job is done. `enrichIsAsync` flags the pair so the
+   * shared orchestrator polls instead of expecting an immediate result.
+   */
+  enrichIsAsync?: boolean;
+  submitEnrich?(apiKey: string, input: LookupInput): Promise<EnrichJob>;
+  pollEnrich?(apiKey: string, jobId: string): Promise<EnrichPoll>;
   /**
    * Whether this provider can search outward for new contacts (as opposed
    * to only enriching known ones). Providers without `discover` leave this

@@ -10,9 +10,14 @@ import {
 export const dynamic = "force-dynamic";
 
 const META: Record<
-  "HUNTER" | "APOLLO" | "PODCHASER" | "SPARKTORO" | "PROSPEO",
+  "HUNTER" | "APOLLO" | "PODCHASER" | "SPARKTORO" | "PROSPEO" | "DROPCONTACT",
   { fieldCoverage: string[]; costNote: string }
 > = {
+  DROPCONTACT: {
+    fieldCoverage: ["email", "phone", "confidence"],
+    costNote:
+      "Credits count against your own Dropcontact plan. Dropcontact enriches asynchronously — a lookup submits a job and we poll it for a few seconds before returning.",
+  },
   HUNTER: {
     fieldCoverage: ["email", "title", "outletName", "linkedinUrl", "twitterUrl", "phone", "confidence"],
     costNote:
@@ -42,7 +47,16 @@ export default async function IntegrationsPage() {
   const integrations = await db.integration.findMany({
     where: {
       accountId: tenant.account.id,
-      partner: { in: ["HUNTER", "APOLLO", "PODCHASER", "SPARKTORO", "PROSPEO"] },
+      partner: {
+        in: [
+          "HUNTER",
+          "APOLLO",
+          "PODCHASER",
+          "SPARKTORO",
+          "PROSPEO",
+          "DROPCONTACT",
+        ],
+      },
     },
   });
 
