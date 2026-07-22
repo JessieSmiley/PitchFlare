@@ -5,6 +5,9 @@ import { UserButton } from "@clerk/nextjs";
 import { getTenant, listAccessibleBrands } from "@/lib/auth/tenant";
 import { BrandSwitcher } from "@/components/brand-switcher";
 import { KeyboardShortcuts } from "@/components/shortcuts/keyboard-shortcuts";
+import { SidebarNav } from "@/components/nav/sidebar-nav";
+import { db } from "@/lib/db";
+import { canAddBrand, PLAN_LABEL } from "@/lib/plans";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +25,23 @@ export default async function DashboardLayout({
   // Signed-in and provisioned but no brand yet → force brand creation first.
   if (!tenant.brand) redirect("/onboarding/brand");
 
-  const brands = await listAccessibleBrands(tenant.account.id, tenant.user.id);
+  const [brands, seatCount, brandCount, campaigns] = await Promise.all([
+    listAccessibleBrands(tenant.account.id, tenant.user.id),
+    db.accountMembership.count({ where: { accountId: tenant.account.id } }),
+    db.brand.count({ where: { accountId: tenant.account.id } }),
+    db.campaign.findMany({
+      where: { brandId: tenant.brand.id },
+      orderBy: { updatedAt: "desc" },
+      select: { id: true, title: true },
+    }),
+  ]);
+
+  const brandRoom = canAddBrand(tenant.account.plan, seatCount, brandCount);
+  const brandCreation = {
+    canAdd: brandRoom.ok,
+    reason: brandRoom.ok ? null : brandRoom.reason,
+    planLabel: PLAN_LABEL[tenant.account.plan],
+  };
 
   return (
     <div className="flex min-h-screen bg-brand-mist">
@@ -48,28 +67,12 @@ export default async function DashboardLayout({
           </span>
         </Link>
 
-        <nav className="flex flex-col gap-0.5 px-2 py-2 text-sm">
-          <NavItem href="/dashboard/level-set" n={1} label="Level-Set" />
-          <NavItem href="/dashboard/strategize/ideation" n={2} label="Strategize" />
-          <NavSub href="/dashboard/strategize/ideation" label="Ideation Station" />
-          <NavSub href="/dashboard/strategize/targets" label="Targets" />
-          <NavItem href="/dashboard/draft/pitches" n={3} label="Draft" />
-          <NavSub href="/dashboard/draft/pitches" label="Pitches" />
-          <NavSub href="/dashboard/draft/press-releases" label="Press Releases" />
-          <NavSub href="/dashboard/draft/social" label="Social Posts" />
-          <NavSub href="/dashboard/draft/follow-ups" label="Follow-ups" />
-          <NavItem href="/dashboard/execute/email" n={4} label="Execute" />
-          <NavSub href="/dashboard/execute/email" label="Direct Email" />
-          <NavSub href="/dashboard/execute/wire" label="Wire Distribution" />
-          <NavItem href="/dashboard/analyze" n={5} label="Analyze" />
-          <NavSub href="/dashboard/analyze/monitoring" label="Monitoring" />
-          <NavSub href="/dashboard/analyze/sentiment" label="Sentiment" />
-          <NavItem href="/dashboard/report" n={6} label="Report" />
-          <NavSub href="/dashboard/report/coverage" label="Coverage" />
-          <NavSub href="/dashboard/report/sov" label="Share of Voice" />
-          <NavSub href="/dashboard/report/roi" label="ROI" />
-          <NavSub href="/dashboard/report/status" label="Status Reports" />
-        </nav>
+        <SidebarNav
+          brands={brands.map((b) => ({ id: b.id, name: b.name, slug: b.slug }))}
+          currentBrandId={tenant.brand?.id ?? null}
+          campaigns={campaigns}
+          brandCreation={brandCreation}
+        />
 
         <div className="mt-auto border-t border-slate-200 px-2 py-3">
           <Link
@@ -126,30 +129,5 @@ export default async function DashboardLayout({
         </main>
       </div>
     </div>
-  );
-}
-
-function NavItem({ href, n, label }: { href: string; n: number; label: string }) {
-  return (
-    <Link
-      href={href}
-      className="mt-1 flex items-center gap-3 rounded-lg px-3 py-2 text-brand-navy transition-colors hover:bg-brand-mist first:mt-0"
-    >
-      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-navy text-xs font-bold text-white">
-        {n}
-      </span>
-      <span className="font-semibold">{label}</span>
-    </Link>
-  );
-}
-
-function NavSub({ href, label }: { href: string; label: string }) {
-  return (
-    <Link
-      href={href}
-      className="ml-9 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-500 transition-colors hover:bg-brand-mist hover:text-brand-navy"
-    >
-      {label}
-    </Link>
   );
 }

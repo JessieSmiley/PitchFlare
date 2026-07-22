@@ -69,10 +69,16 @@ export default async function LevelSetPage() {
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6">
       <div>
-        <h1 className="font-display text-4xl text-brand-navy">Level-Set</h1>
+        <p className="text-xs font-medium uppercase tracking-wide text-brand-pink">
+          Brand profile
+        </p>
+        <h1 className="font-display text-4xl text-brand-navy">
+          {tenant.brand.name}
+        </h1>
         <p className="mt-1 text-muted-foreground">
           Lock in everything the AI needs to speak for {tenant.brand.name}.
-          Every field auto-saves.
+          Every field auto-saves — switch brands anytime from the sidebar and
+          come right back.
         </p>
       </div>
 
