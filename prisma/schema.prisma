@@ -116,6 +116,11 @@ enum ContactFieldSource {
   AUTO_SCRAPED
   USER_ADDED
   DATA_PARTNER
+  /// Claude-inferred from a contact's byline corpus (e.g. "prefers exclusives"
+  /// guessed from recent-work patterns). Always a best guess — the UI badges
+  /// it as inferred and a user can confirm it, which flips the row to
+  /// USER_ADDED so enrichment/inference never stomps a human decision.
+  AI_INFERRED
 }
 
 /// How a contact email was obtained, ordered cheapest → most expensive. The
@@ -386,6 +391,7 @@ model Brand {
   reports         Report[]
   reportSchedules ReportSchedule[]
   contactInteractions ContactInteraction[]
+  coverageLikelihoods CoverageLikelihood[]
   emailThreads    EmailThread[]
   aiUsageLogs     AiUsageLog[]
 
@@ -668,6 +674,7 @@ model Contact {
   recentWork    RecentWork[]
   notes         ContactNote[]
   interactions  ContactInteraction[]
+  likelihoods   CoverageLikelihood[]
   mediaLists    MediaListMember[]
   pitches       Pitch[]
   emailSends    EmailSend[]
@@ -863,6 +870,44 @@ model ContactInteraction {
   brand   Brand   @relation(fields: [brandId], references: [id], onDelete: Cascade)
   contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
 
+  @@index([brandId, contactId])
+  @@index([campaignId])
+}
+
+/// Cached "Likelihood to Cover" score for a contact, brand-scoped (and
+/// optionally campaign-scoped) because the strongest signals — prior replies
+/// to *this* brand and coverage of *this* brand's competitors — are private
+/// to the brand. Unlike the topical match in lib/contacts/match.ts (computed
+/// live and thrown away), this is persisted so the Haiku-generated rationale
+/// isn't regenerated on every table render. Recomputed lazily when stale or
+/// when new interactions/coverage land. `breakdown` holds the per-signal
+/// contribution array so the drawer can show exactly why the number is what
+/// it is.
+model CoverageLikelihood {
+  id         String   @id @default(cuid())
+  brandId    String
+  contactId  String
+  /// Null = the brand-level baseline (no campaign context). A row per campaign
+  /// captures topic/angle-specific signals ("covered this topic in 30 days").
+  campaignId String?
+  /// 0–100 headline percentage.
+  score      Int
+  /// 0–100 how much signal data backed the score (thin corpus → low).
+  confidence Int      @default(0)
+  /// [{ key, label, weight, subScore, points, detail }] — the explainable
+  /// contribution of every signal, positive and negative.
+  breakdown  Json
+  /// One-sentence plain-English reason, Haiku-generated from `breakdown`
+  /// (deterministic template fallback when AI is unavailable).
+  rationale  String?
+  modelUsed  String?
+  computedAt DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  brand   Brand   @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@unique([brandId, contactId, campaignId])
   @@index([brandId, contactId])
   @@index([campaignId])
 }
