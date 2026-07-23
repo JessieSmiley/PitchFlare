@@ -174,7 +174,10 @@ function daysBetween(a: Date, b: Date): number {
 }
 
 function pluralize(n: number, word: string): string {
-  return `${n} ${word}${n === 1 ? "" : "s"}`;
+  if (n === 1) return `1 ${word}`;
+  // Handle the handful of forms these details actually use (story → stories).
+  const plural = /[^aeiou]y$/.test(word) ? word.replace(/y$/, "ies") : `${word}s`;
+  return `${n} ${plural}`;
 }
 
 function agoPhrase(from: Date, to: Date): string {
@@ -244,13 +247,14 @@ function scoreCoveredCompetitor(i: LikelihoodInputs, now: Date): SignalOut {
   if (i.competitorNames.length === 0) {
     return { subScore: null, available: false, detail: "No competitors configured" };
   }
+  // Keep the original casing for display; match case-insensitively.
   const names = i.competitorNames
-    .map((c) => c.trim().toLowerCase())
+    .map((c) => c.trim())
     .filter((c) => c.length >= 2);
   let best: { name: string; age: number } | null = null;
   for (const rw of i.recentWork) {
     const hay = `${rw.title} ${rw.excerpt ?? ""}`.toLowerCase();
-    const hit = names.find((n) => hay.includes(n));
+    const hit = names.find((n) => hay.includes(n.toLowerCase()));
     if (!hit) continue;
     const age = rw.publishedAt ? daysBetween(now, rw.publishedAt) : 9999;
     if (!best || age < best.age) best = { name: hit, age };
@@ -259,12 +263,10 @@ function scoreCoveredCompetitor(i: LikelihoodInputs, now: Date): SignalOut {
     return { subScore: 0, available: true, detail: "No competitor coverage found" };
   }
   const subScore = best.age <= 60 ? 1.0 : best.age <= 180 ? 0.7 : 0.4;
-  // Title-case the matched competitor name for display.
-  const display = best.name.replace(/\b\w/g, (c) => c.toUpperCase());
   return {
     subScore,
     available: true,
-    detail: `Recently covered a competitor (${display})`,
+    detail: `Recently covered a competitor (${best.name})`,
   };
 }
 
