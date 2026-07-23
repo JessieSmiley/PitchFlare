@@ -4,6 +4,10 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireTenant } from "@/lib/auth/tenant";
+import {
+  resolveCampaignTopicTerms,
+  scoreContactsLikelihood,
+} from "@/lib/contacts/likelihood-service";
 
 type ActionResult<T = unknown> =
   | ({ ok: true } & T)
@@ -196,6 +200,126 @@ export async function deleteMediaList(
   await db.mediaList.delete({ where: { id: list.id } });
   revalidateLists();
   return { ok: true };
+}
+
+const ExportListInput = z.object({ mediaListId: z.string().min(1) });
+
+/**
+ * Build a CSV of a list's members — contact details plus their current
+ * Likelihood to Cover score and reason — for download. Returned as a string so
+ * the client can trigger a Blob download (no file storage needed).
+ */
+export async function exportListCsv(
+  input: z.input<typeof ExportListInput>,
+): Promise<ActionResult<{ filename: string; csv: string }>> {
+  const parsed = ExportListInput.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+  const tenant = await requireTenant();
+  if (!tenant.brand) return { ok: false, error: "No brand selected." };
+  const brandId = tenant.brand.id;
+
+  const list = await db.mediaList.findFirst({
+    where: { id: parsed.data.mediaListId, brandId },
+    select: {
+      id: true,
+      name: true,
+      campaign: { select: { id: true } },
+      members: {
+        select: {
+          contact: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              kind: true,
+              beats: { include: { beat: { select: { name: true } } } },
+              outlets: {
+                where: { isPrimary: true },
+                take: 1,
+                include: { outlet: { select: { name: true } } },
+              },
+              fields: { select: { key: true, value: true, source: true } },
+              recentWork: {
+                select: { title: true, excerpt: true, publishedAt: true },
+                orderBy: { publishedAt: "desc" },
+                take: 30,
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+  if (!list) return { ok: false, error: "List not found." };
+
+  const contacts = list.members.map((m) => m.contact);
+  const topicTerms = list.campaign
+    ? await resolveCampaignTopicTerms(brandId, list.campaign.id)
+    : [];
+  const likelihoodMap = await scoreContactsLikelihood(
+    brandId,
+    contacts.map((c) => ({
+      contactId: c.id,
+      recentWork: c.recentWork,
+      fields: c.fields,
+    })),
+    { topicTerms },
+  );
+
+  const header = [
+    "Name",
+    "Email",
+    "Outlet",
+    "Title",
+    "Type",
+    "Beats",
+    "Likelihood %",
+    "Confidence %",
+    "Reason",
+  ];
+  const rows = contacts.map((c) => {
+    const l = likelihoodMap.get(c.id);
+    const title = c.fields.find((f) => f.key === "title")?.value ?? "";
+    const outlet =
+      c.outlets[0]?.outlet.name ??
+      c.fields.find((f) => f.key === "outletName")?.value ??
+      "";
+    return [
+      c.name,
+      c.email ?? "",
+      outlet,
+      title,
+      c.kind,
+      c.beats.map((b) => b.beat.name).join("; "),
+      l ? String(l.score) : "",
+      l ? String(l.confidence) : "",
+      l?.rationale ?? "",
+    ];
+  });
+
+  const csv = [header, ...rows].map((r) => r.map(csvCell).join(",")).join("\r\n");
+  const filename = `${slugify(list.name)}-list.csv`;
+  return { ok: true, filename, csv };
+}
+
+/** RFC 4180 field escaping — quote when the value contains "," CR/LF or a quote. */
+function csvCell(value: string): string {
+  if (/[",\r\n]/.test(value)) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
+}
+
+function slugify(s: string): string {
+  return (
+    s
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 60) || "media"
+  );
 }
 
 // Sentinel distinguishing "no campaign" (null) from "campaign given but not

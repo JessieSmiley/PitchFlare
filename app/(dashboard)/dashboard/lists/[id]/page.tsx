@@ -10,6 +10,8 @@ import { likelihoodBand } from "@/lib/contacts/likelihood";
 import { LikelihoodPill } from "@/components/targets/likelihood-pill";
 import { ListHeaderActions } from "@/components/lists/list-header-actions";
 import { RemoveMemberButton } from "@/components/lists/remove-member-button";
+import { ExportListButton } from "@/components/lists/export-list-button";
+import { PitchListButton } from "@/components/lists/pitch-list-button";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +35,8 @@ export default async function ListDetailPage({
   const brandId = tenant.brand.id;
   const { id } = await params;
 
-  const list = await db.mediaList.findFirst({
+  const [list, campaigns] = await Promise.all([
+    db.mediaList.findFirst({
     where: { id, brandId },
     select: {
       id: true,
@@ -66,7 +69,13 @@ export default async function ListDetailPage({
         },
       },
     },
-  });
+    }),
+    db.campaign.findMany({
+      where: { brandId },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, title: true },
+    }),
+  ]);
 
   if (!list) notFound();
 
@@ -120,13 +129,23 @@ export default async function ListDetailPage({
               {contacts.length} contact{contacts.length === 1 ? "" : "s"}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Link
               href="/dashboard/strategize/targets"
               className="rounded-lg border border-border px-3 py-2 text-sm text-brand-navy hover:border-brand-pink"
             >
               + Add contacts
             </Link>
+            {contacts.length > 0 && (
+              <>
+                <ExportListButton listId={list.id} />
+                <PitchListButton
+                  listId={list.id}
+                  campaign={list.campaign}
+                  campaigns={campaigns}
+                />
+              </>
+            )}
             <ListHeaderActions
               listId={list.id}
               name={list.name}
