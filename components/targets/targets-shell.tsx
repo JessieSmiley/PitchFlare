@@ -87,6 +87,7 @@ export function TargetsShell({
 
       <ContactDrawer
         contact={selected ? contactDetails[selected] ?? null : null}
+        campaignId={campaignId}
         onClose={() => setSelected(null)}
         enrichPartners={enrichPartners}
       />

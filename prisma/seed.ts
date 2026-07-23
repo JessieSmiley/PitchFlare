@@ -218,6 +218,145 @@ async function main() {
     ),
   );
 
+  // ---------- Behavioral signals for Likelihood to Cover ----------
+  // Give the journalist a realistic behavioral footprint so the score lands in
+  // the high band (~90%) out of the box: prior replies to this brand, on-topic
+  // and competitor coverage in the last 30 days, a funding-heavy corpus, and a
+  // steady cadence. Other contacts stay thin so the table shows a real range
+  // (and the confidence badge for low-signal rows).
+  const DAY = 24 * 60 * 60 * 1000;
+  const daysAgo = (n: number) => new Date(Date.now() - n * DAY);
+
+  // Competitors — one of these shows up in the journalist's recent coverage.
+  await Promise.all([
+    db.competitor.upsert({
+      where: { id: "seed_competitor_1" },
+      update: {},
+      create: {
+        id: "seed_competitor_1",
+        brandId: brand.id,
+        name: "Northwind SaaS",
+        domain: "northwind.example",
+      },
+    }),
+    db.competitor.upsert({
+      where: { id: "seed_competitor_2" },
+      update: {},
+      create: {
+        id: "seed_competitor_2",
+        brandId: brand.id,
+        name: "Boltline",
+        domain: "boltline.example",
+      },
+    }),
+  ]);
+
+  // Journalist's recent work — topic ("product launch", "trial signups"),
+  // competitor ("Northwind SaaS"), and funding signals, tightly dated.
+  const journalistWork: Array<{ title: string; days: number }> = [
+    { title: "Northwind SaaS raises $30M Series B to speed up product launches", days: 4 },
+    { title: "The new wave of SaaS product launches to watch in 2026", days: 10 },
+    { title: "Series A funding roundup: eight infra startups on the rise", days: 18 },
+    { title: "How trial signups became every PLG team's north-star metric", days: 26 },
+    { title: "Devtools consolidation continues as buyers cut stacks", days: 41 },
+    { title: "SaaS pricing gets simpler — and why that matters", days: 56 },
+  ];
+  await Promise.all(
+    journalistWork.map((w, i) =>
+      db.recentWork.upsert({
+        where: {
+          contactId_url: {
+            contactId: journalist.id,
+            url: `https://techpress.example/articles/seed-${i}`,
+          },
+        },
+        update: {},
+        create: {
+          contactId: journalist.id,
+          title: w.title,
+          url: `https://techpress.example/articles/seed-${i}`,
+          publishedAt: daysAgo(w.days),
+          source: "RSS",
+        },
+      }),
+    ),
+  );
+
+  // Podcaster gets a lighter, on-topic footprint → a medium score.
+  const podcasterWork = [
+    { title: "Founder chat: shipping a product launch in two weeks", days: 12 },
+    { title: "The trial-to-paid playbook for early SaaS", days: 33 },
+  ];
+  await Promise.all(
+    podcasterWork.map((w, i) =>
+      db.recentWork.upsert({
+        where: {
+          contactId_url: {
+            contactId: podcaster.id,
+            url: `https://buildshow.example/ep/seed-${i}`,
+          },
+        },
+        update: {},
+        create: {
+          contactId: podcaster.id,
+          title: w.title,
+          url: `https://buildshow.example/ep/seed-${i}`,
+          publishedAt: daysAgo(w.days),
+          source: "RSS",
+        },
+      }),
+    ),
+  );
+
+  // Prior brand-scoped interactions: pitched twice, replied twice (recently).
+  const interactions: Array<{
+    id: string;
+    kind: "PITCH_SENT" | "REPLY_RECEIVED";
+    days: number;
+    summary: string;
+  }> = [
+    { id: "seed_int_1", kind: "PITCH_SENT", days: 48, summary: "Q1 feature pitch" },
+    { id: "seed_int_2", kind: "REPLY_RECEIVED", days: 46, summary: "Replied — asked for a demo" },
+    { id: "seed_int_3", kind: "PITCH_SENT", days: 24, summary: "Launch heads-up" },
+    { id: "seed_int_4", kind: "REPLY_RECEIVED", days: 22, summary: "Replied — keen on an exclusive" },
+  ];
+  await Promise.all(
+    interactions.map((it) =>
+      db.contactInteraction.upsert({
+        where: { id: it.id },
+        update: {},
+        create: {
+          id: it.id,
+          brandId: brand.id,
+          contactId: journalist.id,
+          campaignId: campaign.id,
+          kind: it.kind,
+          summary: it.summary,
+          occurredAt: daysAgo(it.days),
+        },
+      }),
+    ),
+  );
+
+  // An AI-inferred "prefers exclusives" flag (badged as a guess in the UI;
+  // the user can confirm it from the drawer).
+  await db.contactField.upsert({
+    where: {
+      contactId_key_source: {
+        contactId: journalist.id,
+        key: "prefersExclusives",
+        source: "AI_INFERRED",
+      },
+    },
+    update: {},
+    create: {
+      contactId: journalist.id,
+      key: "prefersExclusives",
+      value: "yes",
+      source: "AI_INFERRED",
+    },
+  });
+
   console.log("Seed complete.");
   console.log({
     account: account.id,

@@ -3,23 +3,55 @@ import Image from "next/image";
 import {
   BarChart3,
   Check,
+  Database,
   FileText,
+  Filter,
+  Gauge,
   Lightbulb,
   Mail,
+  Newspaper,
   PenLine,
   Radar,
+  Reply,
+  Search,
   Send,
+  Signal,
   Sparkles,
   Target,
+  TrendingUp,
   Users,
 } from "lucide-react";
 
 const NAV_LINKS = [
+  { href: "#database", label: "Media database" },
+  { href: "#likelihood", label: "Likelihood score" },
   { href: "#features", label: "Features" },
-  { href: "#how-it-works", label: "How it works" },
   { href: "#pricing", label: "Pricing" },
   { href: "#faq", label: "FAQ" },
 ];
+
+// The behavioral signals behind the Likelihood-to-Cover score, mirroring the
+// weights in lib/contacts/likelihood.ts. Kept here as marketing copy — the
+// real engine is brand-scoped and computed per contact.
+const SIGNALS: {
+  label: string;
+  weight: "Very high" | "High" | "Medium" | "Negative";
+}[] = [
+  { label: "Responded to your brand before", weight: "Very high" },
+  { label: "Covered your topic in the last 30 days", weight: "High" },
+  { label: "Recently covered a competitor", weight: "High" },
+  { label: "Regularly covers this news category", weight: "Medium" },
+  { label: "Prefers exclusives", weight: "Medium" },
+  { label: "Active publication cadence", weight: "Medium" },
+  { label: "Rarely writes press-release-driven stories", weight: "Negative" },
+];
+
+const WEIGHT_STYLES: Record<string, string> = {
+  "Very high": "bg-emerald-100 text-emerald-800",
+  High: "bg-emerald-50 text-emerald-700",
+  Medium: "bg-amber-50 text-amber-700",
+  Negative: "bg-rose-50 text-rose-700",
+};
 
 export default function LandingPage() {
   return (
@@ -81,14 +113,17 @@ export default function LandingPage() {
                 Ignite your strategy. From pitch to placement.
               </p>
               <h1 className="text-4xl font-bold leading-tight tracking-tight text-brand-navy md:text-5xl">
-                PR strategy, pitching, tracking, and reporting in one AI
-                platform.
+                Find the journalists most likely to cover you — and know why.
               </h1>
               <p className="mt-5 max-w-xl text-lg leading-relaxed text-slate-600">
-                PitchFlare helps freelance consultants and boutique agencies run
-                campaigns end-to-end — brand setup, AI pitch strategy, contact
-                intelligence, send tracking, coverage analytics, and
-                client-ready reports.
+                PitchFlare is a media database with a brain. Every journalist,
+                podcaster, and creator carries a{" "}
+                <span className="font-semibold text-brand-navy">
+                  Likelihood to Cover
+                </span>{" "}
+                score built from behavioral signals — prior replies, recent
+                coverage, competitor activity — not just the beat they write.
+                Then it runs the whole campaign, from pitch to placement.
               </p>
               <div className="mt-8 flex flex-wrap items-center gap-3">
                 <Link
@@ -119,54 +154,228 @@ export default function LandingPage() {
                 priority
                 className="mx-auto w-56 sm:w-64 lg:absolute lg:-top-10 lg:right-0 lg:mx-0 lg:w-[24rem]"
               />
-              <div className="relative z-10 -mt-10 rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-200/60 lg:mt-52 lg:mr-28">
-              <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-                    Campaign
+              <div className="relative z-10 -mt-10 rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-200/60 lg:mt-52 lg:mr-20">
+                <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-navy text-sm font-bold text-white">
+                      SO
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">
+                        Sarah Okafor
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        Senior Reporter · TechDaily · Cybersecurity
+                      </p>
+                    </div>
+                  </div>
+                  <span className="shrink-0 rounded-full bg-emerald-50 px-3 py-1.5 text-sm font-bold text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
+                    87%
+                  </span>
+                </div>
+                <div className="px-5 py-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                    Likelihood to Cover · 86% confidence
                   </p>
-                  <p className="text-sm font-semibold text-slate-900">
-                    Series B launch — TechDaily &amp; friends
+                  <p className="mt-2 text-sm leading-relaxed text-slate-700">
+                    Wrote three stories about cybersecurity funding in the past
+                    two weeks, recently quoted your competitor&apos;s CEO, and
+                    frequently covers Series A/B announcements.
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    <SignalChip icon={<Reply className="h-3 w-3" />} label="Replied before" />
+                    <SignalChip icon={<Newspaper className="h-3 w-3" />} label="On-topic ×3 (30d)" />
+                    <SignalChip icon={<Target className="h-3 w-3" />} label="Covered competitor" />
+                    <SignalChip icon={<TrendingUp className="h-3 w-3" />} label="Covers funding" />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between rounded-b-2xl border-t border-slate-100 bg-brand-mist px-5 py-3">
+                  <p className="text-xs text-slate-500">Next best contact</p>
+                  <p className="text-sm font-semibold text-brand-navy">
+                    Miguel Ferreira{" "}
+                    <span className="font-medium text-emerald-600">· 79%</span>
                   </p>
                 </div>
-                <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-emerald-700">
-                  On track
-                </span>
               </div>
-              <ul className="divide-y divide-slate-100">
-                <MockRow
-                  name="Sarah Okafor"
-                  outlet="TechDaily · Enterprise beat"
-                  badge="Coverage secured"
-                  badgeClass="bg-emerald-50 text-emerald-700"
-                />
-                <MockRow
-                  name="Miguel Ferreira"
-                  outlet="The SaaS Report · Podcast"
-                  badge="Replied"
-                  badgeClass="bg-sky-50 text-sky-700"
-                />
-                <MockRow
-                  name="Dana Lindqvist"
-                  outlet="MarketWatch Weekly"
-                  badge="Opened 3×"
-                  badgeClass="bg-amber-50 text-amber-700"
-                />
-                <MockRow
-                  name="Priya Raman"
-                  outlet="Growth Signals newsletter"
-                  badge="Follow-up due"
-                  badgeClass="bg-pink-50 text-brand-pink"
-                />
-              </ul>
-              <div className="flex items-center justify-between rounded-b-2xl border-t border-slate-100 bg-brand-mist px-5 py-3.5">
-                <p className="text-xs text-slate-500">
-                  Share of voice this week
-                </p>
-                <p className="text-sm font-bold text-brand-navy">
-                  34% <span className="font-medium text-emerald-600">▲ 6pts</span>
-                </p>
+            </div>
+          </div>
+        </section>
+
+        {/* ── Media database ───────────────────────────────────── */}
+        <section id="database" className="border-b border-slate-100 bg-white">
+          <div className="mx-auto max-w-6xl px-6 py-20">
+            <div className="mx-auto max-w-2xl text-center">
+              <p className="mb-3 inline-flex items-center gap-2 rounded-full bg-accent px-3 py-1 text-xs font-semibold uppercase tracking-wide text-brand-pink">
+                <Database className="h-3.5 w-3.5" aria-hidden />
+                Discovery database
+              </p>
+              <h2 className="text-3xl font-bold tracking-tight text-brand-navy">
+                A media database that ranks, not just lists
+              </h2>
+              <p className="mt-3 text-lg text-slate-600">
+                Search journalists, podcasters, and creators, then sort the
+                whole list by how likely each one is to cover your story.
+                Every profile is a full picture — recent work, beats, contact
+                details, and the behavioral signals behind the score.
+              </p>
+            </div>
+
+            <div className="mt-12 grid gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
+              {/* Faceted list mock */}
+              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-3">
+                  <Search className="h-4 w-4 text-slate-400" aria-hidden />
+                  <span className="text-sm text-slate-400">
+                    cybersecurity funding · Tier 1–2 · replied before
+                  </span>
+                  <span className="ml-auto inline-flex items-center gap-1 rounded-md bg-brand-mist px-2 py-1 text-xs text-slate-500">
+                    <Filter className="h-3 w-3" aria-hidden /> 4 filters
+                  </span>
+                </div>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-xs text-slate-400">
+                      <th className="px-4 py-2 font-medium">Contact</th>
+                      <th className="px-4 py-2 font-medium">Outlet</th>
+                      <th className="px-4 py-2 font-medium text-right">
+                        Likelihood
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <DbRow name="Sarah Okafor" initials="SO" outlet="TechDaily" score={87} band="high" />
+                    <DbRow name="Miguel Ferreira" initials="MF" outlet="The SaaS Report" score={79} band="high" />
+                    <DbRow name="Dana Lindqvist" initials="DL" outlet="MarketWatch Weekly" score={54} band="medium" />
+                    <DbRow name="Tomas Berg" initials="TB" outlet="Wireframe Newsletter" score={38} band="low" />
+                  </tbody>
+                </table>
               </div>
+
+              {/* Profile preview */}
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-navy text-sm font-bold text-white">
+                    SO
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">
+                      Sarah Okafor
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      Senior Reporter · TechDaily
+                    </p>
+                  </div>
+                  <span className="ml-auto rounded-full bg-emerald-50 px-2.5 py-1 text-sm font-bold text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
+                    87%
+                  </span>
+                </div>
+                <div className="mt-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                    Beats
+                  </p>
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {["cybersecurity", "enterprise", "funding"].map((b) => (
+                      <span
+                        key={b}
+                        className="rounded-full bg-brand-mist px-2 py-0.5 text-[11px] text-slate-500"
+                      >
+                        {b}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                    Recent work
+                  </p>
+                  <ul className="mt-1.5 space-y-1 text-xs text-slate-600">
+                    <li>· Startup raises $30M Series B to harden supply chains</li>
+                    <li>· Inside a CISO&apos;s move to zero-trust</li>
+                    <li>· The funding climate for security startups in 2026</li>
+                  </ul>
+                </div>
+                <div className="mt-4 rounded-lg bg-brand-mist p-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                    Why 87%
+                  </p>
+                  <p className="mt-1 text-xs leading-relaxed text-slate-600">
+                    Replied to you twice, three on-topic stories in 30 days, and
+                    recently covered a competitor.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ── How the Likelihood score works ───────────────────── */}
+        <section id="likelihood" className="border-b border-slate-100 bg-brand-mist">
+          <div className="mx-auto max-w-6xl px-6 py-20">
+            <div className="grid items-start gap-12 lg:grid-cols-2">
+              <div>
+                <p className="mb-3 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-wide text-brand-pink">
+                  <Gauge className="h-3.5 w-3.5" aria-hidden />
+                  Likelihood to Cover
+                </p>
+                <h2 className="text-3xl font-bold tracking-tight text-brand-navy">
+                  Behavioral signals, not topical guesswork
+                </h2>
+                <p className="mt-4 text-lg leading-relaxed text-slate-600">
+                  &ldquo;This journalist covers cybersecurity&rdquo; isn&apos;t
+                  actionable. PitchFlare weighs how a journalist actually
+                  behaves — who they reply to, what they&apos;ve covered lately,
+                  whether they took a competitor&apos;s call — into one score
+                  you can sort and defend.
+                </p>
+                <ul className="mt-6 space-y-2">
+                  {SIGNALS.map((s) => (
+                    <li
+                      key={s.label}
+                      className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-4 py-2.5"
+                    >
+                      <span className="flex items-center gap-2 text-sm text-slate-700">
+                        <Signal className="h-3.5 w-3.5 text-slate-400" aria-hidden />
+                        {s.label}
+                      </span>
+                      <span
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${WEIGHT_STYLES[s.weight]}`}
+                      >
+                        {s.weight}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="lg:sticky lg:top-24">
+                <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <p className="text-sm font-semibold text-slate-500">
+                    The output
+                  </p>
+                  <p className="mt-2 text-5xl font-bold tracking-tight text-brand-navy">
+                    87%
+                    <span className="ml-2 text-base font-medium text-emerald-600">
+                      likelihood of interest
+                    </span>
+                  </p>
+                  <p className="mt-4 rounded-lg bg-brand-mist p-4 text-sm leading-relaxed text-slate-700">
+                    Wrote three stories about cybersecurity funding in the past
+                    two weeks, recently quoted your competitor&apos;s CEO, and
+                    frequently covers Series A/B announcements.
+                  </p>
+                  <div className="mt-5 space-y-3">
+                    <ScoreBar label="Responded to your brand before" pct={100} />
+                    <ScoreBar label="Covered your topic (30 days)" pct={100} />
+                    <ScoreBar label="Recently covered a competitor" pct={100} />
+                    <ScoreBar label="Regularly covers funding" pct={83} />
+                    <ScoreBar label="Active publication cadence" pct={100} />
+                  </div>
+                  <p className="mt-5 text-xs leading-relaxed text-slate-500">
+                    Every score is brand-scoped and explainable — open a contact
+                    to see exactly which signals fired, confirm the AI&apos;s
+                    guesses, and refine the reasoning with one click.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -176,11 +385,11 @@ export default function LandingPage() {
         <section id="features" className="mx-auto max-w-6xl px-6 py-20">
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="text-3xl font-bold tracking-tight text-brand-navy">
-              Everything a PR campaign needs, in one place
+              …and then it runs the whole campaign
             </h2>
             <p className="mt-3 text-lg text-slate-600">
-              Six phases, one workflow. Stop stitching together spreadsheets,
-              media databases, and mail merge.
+              The database is where you start. Six phases, one workflow — no
+              stitching together spreadsheets, media databases, and mail merge.
             </p>
           </div>
           <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -404,6 +613,10 @@ export default function LandingPage() {
               a="Yes — that's what the Level-Set phase is for. You capture the brand's voice, pillars, spokespeople, and approved boilerplate once, and every pitch, press release, and social post is generated against that profile rather than from a generic template."
             />
             <Faq
+              q="How is the Likelihood to Cover score calculated?"
+              a="It's a weighted blend of behavioral signals — whether the journalist has replied to your brand before, whether they've covered your topic in the last 30 days, whether they've recently covered a competitor, how often they cover your news category, their publication cadence, and preference signals like exclusives. Each score is brand-scoped and fully explainable: open a contact to see which signals fired and how much each contributed. Signals with no data lower the confidence rather than faking the number."
+            />
+            <Faq
               q="Where do the journalist contacts come from?"
               a="PitchFlare combines contact intelligence from Apollo, Hunter, Podchaser, and SparkToro, then matches and de-duplicates the results into a single target list you can vet before anything is sent."
             />
@@ -525,29 +738,72 @@ export default function LandingPage() {
   );
 }
 
-function MockRow({
+function SignalChip({ icon, label }: { icon: React.ReactNode; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-brand-mist px-2 py-0.5 text-[11px] font-medium text-slate-600">
+      <span className="text-brand-pink" aria-hidden>
+        {icon}
+      </span>
+      {label}
+    </span>
+  );
+}
+
+const DB_BAND_STYLES: Record<string, string> = {
+  high: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
+  medium: "bg-amber-50 text-amber-700 ring-amber-600/20",
+  low: "bg-slate-100 text-slate-500 ring-slate-500/20",
+};
+
+function DbRow({
   name,
+  initials,
   outlet,
-  badge,
-  badgeClass,
+  score,
+  band,
 }: {
   name: string;
+  initials: string;
   outlet: string;
-  badge: string;
-  badgeClass: string;
+  score: number;
+  band: "high" | "medium" | "low";
 }) {
   return (
-    <li className="flex items-center justify-between gap-3 px-5 py-3.5">
-      <div className="min-w-0">
-        <p className="truncate text-sm font-semibold text-slate-800">{name}</p>
-        <p className="truncate text-xs text-slate-500">{outlet}</p>
+    <tr className="border-t border-slate-100">
+      <td className="px-4 py-2.5">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-[11px] font-semibold text-accent-foreground">
+            {initials}
+          </div>
+          <span className="font-medium text-brand-navy">{name}</span>
+        </div>
+      </td>
+      <td className="px-4 py-2.5 text-slate-500">{outlet}</td>
+      <td className="px-4 py-2.5 text-right">
+        <span
+          className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ${DB_BAND_STYLES[band]}`}
+        >
+          {score}%
+        </span>
+      </td>
+    </tr>
+  );
+}
+
+function ScoreBar({ label, pct }: { label: string; pct: number }) {
+  return (
+    <div>
+      <div className="flex items-center justify-between text-xs text-slate-600">
+        <span>{label}</span>
+        <span className="font-medium text-slate-400">{pct}%</span>
       </div>
-      <span
-        className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide ${badgeClass}`}
-      >
-        {badge}
-      </span>
-    </li>
+      <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-brand-mist">
+        <div
+          className="h-full rounded-full bg-emerald-500/70"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
   );
 }
 
