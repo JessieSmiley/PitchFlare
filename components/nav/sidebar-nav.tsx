@@ -7,6 +7,7 @@ import { createBrandAction, switchBrandAction } from "@/lib/auth/actions";
 
 export type SidebarBrand = { id: string; name: string; slug: string };
 export type SidebarCampaign = { id: string; title: string };
+export type SidebarList = { id: string; name: string };
 
 export type BrandCreationInfo = {
   canAdd: boolean;
@@ -18,11 +19,13 @@ export function SidebarNav({
   brands,
   currentBrandId,
   campaigns,
+  lists,
   brandCreation,
 }: {
   brands: SidebarBrand[];
   currentBrandId: string | null;
   campaigns: SidebarCampaign[];
+  lists: SidebarList[];
   brandCreation: BrandCreationInfo;
 }) {
   const pathname = usePathname();
@@ -69,6 +72,48 @@ export function SidebarNav({
           </span>
           <span>Dashboard</span>
         </Link>
+
+        {/* Media Lists — top-level, above the numbered setup steps */}
+        <Link
+          href="/dashboard/lists"
+          className={`flex items-center gap-3 rounded-lg px-3 py-2 font-semibold text-brand-navy transition-colors hover:bg-brand-mist ${
+            pathname.startsWith("/dashboard/lists") ? "bg-brand-mist" : ""
+          }`}
+        >
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-navy text-white">
+            <ListIcon />
+          </span>
+          <span>Media Lists</span>
+        </Link>
+        <div className="ml-9 flex flex-col gap-0.5">
+          {lists.map((l) => (
+            <Link
+              key={l.id}
+              href={`/dashboard/lists/${l.id}`}
+              className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors hover:bg-brand-mist hover:text-brand-navy ${
+                pathname === `/dashboard/lists/${l.id}`
+                  ? "text-brand-pink"
+                  : "text-slate-500"
+              }`}
+            >
+              <span
+                className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                  pathname === `/dashboard/lists/${l.id}`
+                    ? "bg-brand-pink"
+                    : "bg-slate-300"
+                }`}
+                aria-hidden
+              />
+              <span className="truncate">{l.name}</span>
+            </Link>
+          ))}
+          <Link
+            href="/dashboard/lists"
+            className="rounded-lg px-3 py-1.5 text-xs font-medium text-brand-pink transition-colors hover:bg-brand-mist"
+          >
+            {lists.length > 0 ? "View all lists" : "+ New list"}
+          </Link>
+        </div>
 
         <div className="my-1 h-px bg-slate-100" />
 
@@ -441,6 +486,24 @@ function HomeIcon() {
     >
       <path d="M3 9.5 12 3l9 6.5" />
       <path d="M5 10v10h14V10" />
+    </svg>
+  );
+}
+
+function ListIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
     </svg>
   );
 }

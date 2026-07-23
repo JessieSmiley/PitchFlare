@@ -169,7 +169,7 @@ const AddDiscoveredInput = z.object({
  */
 export async function addDiscoveredContacts(
   input: z.input<typeof AddDiscoveredInput>,
-): Promise<ActionResult<{ added: number; skipped: number }>> {
+): Promise<ActionResult<{ added: number; skipped: number; contactIds: string[] }>> {
   const parsed = AddDiscoveredInput.safeParse(input);
   if (!parsed.success) {
     return {
@@ -181,26 +181,34 @@ export async function addDiscoveredContacts(
   if (!tenant.brand) return { ok: false, error: "No brand selected." };
   const brandId = tenant.brand.id;
 
-  // Dedup against existing contacts by email in one query up front.
+  // Dedup against existing contacts by email in one query up front. Keep the
+  // existing contact id too so the caller can still add an already-known
+  // person to a list (skipped for creation ≠ excluded from the selection).
   const emails = parsed.data.people
     .map((p) => p.email?.toLowerCase())
     .filter((e): e is string => Boolean(e));
   const existing = emails.length
     ? await db.contact.findMany({
         where: { email: { in: emails } },
-        select: { email: true },
+        select: { id: true, email: true },
       })
     : [];
-  const taken = new Set(
-    existing.map((c) => c.email?.toLowerCase()).filter(Boolean),
+  const existingByEmail = new Map(
+    existing
+      .filter((c) => c.email)
+      .map((c) => [c.email!.toLowerCase(), c.id] as const),
   );
+  const taken = new Set(existingByEmail.keys());
 
   let added = 0;
   let skipped = 0;
+  const contactIds: string[] = [];
 
   for (const person of parsed.data.people) {
     if (person.email && taken.has(person.email.toLowerCase())) {
       skipped += 1;
+      const existingId = existingByEmail.get(person.email.toLowerCase());
+      if (existingId) contactIds.push(existingId);
       continue;
     }
 
@@ -270,9 +278,10 @@ export async function addDiscoveredContacts(
     });
 
     if (person.email) taken.add(person.email.toLowerCase());
+    contactIds.push(contact.id);
     added += 1;
   }
 
   revalidatePath("/dashboard/strategize/targets");
-  return { ok: true, added, skipped };
+  return { ok: true, added, skipped, contactIds };
 }

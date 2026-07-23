@@ -10,6 +10,7 @@ import {
 } from "@/lib/contacts/likelihood-actions";
 import type { ContactLikelihood } from "@/lib/contacts/likelihood";
 import { LikelihoodPanel } from "./likelihood-panel";
+import { AddToListModal, type ListOption } from "./add-to-list-modal";
 
 export type ContactDetail = {
   id: string;
@@ -47,11 +48,13 @@ const SOURCE_TONE: Record<string, string> = {
 export function ContactDrawer({
   contact,
   campaignId,
+  lists = [],
   onClose,
   enrichPartners = [],
 }: {
   contact: ContactDetail | null;
   campaignId?: string | null;
+  lists?: ListOption[];
   onClose: () => void;
   enrichPartners?: EnrichPartner[];
 }) {
@@ -59,6 +62,7 @@ export function ContactDrawer({
   const [enriching, startEnrich] = useTransition();
   const [pendingPartner, setPendingPartner] = useState<string | null>(null);
   const [enrichMessage, setEnrichMessage] = useState<string | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
 
   if (!contact) return null;
 
@@ -110,13 +114,22 @@ export function ContactDrawer({
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full border border-border px-2 py-1 text-xs"
-          >
-            Close
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowAddModal(true)}
+              className="rounded-full bg-brand-pink px-3 py-1 text-xs font-medium text-white hover:opacity-90"
+            >
+              + Add to list
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-full border border-border px-2 py-1 text-xs"
+            >
+              Close
+            </button>
+          </div>
         </div>
 
         {contact.likelihood && (
@@ -252,6 +265,16 @@ export function ContactDrawer({
           never overwritten.
         </p>
       </aside>
+
+      {showAddModal && (
+        <AddToListModal
+          contactIds={[contact.id]}
+          lists={lists}
+          campaignId={campaignId ?? null}
+          title={`Add ${contact.name} to a list`}
+          onClose={() => setShowAddModal(false)}
+        />
+      )}
     </div>
   );
 }
