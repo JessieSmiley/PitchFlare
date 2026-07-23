@@ -25,16 +25,23 @@ export default async function DashboardLayout({
   // Signed-in and provisioned but no brand yet → force brand creation first.
   if (!tenant.brand) redirect("/onboarding/brand");
 
-  const [brands, seatCount, brandCount, campaigns] = await Promise.all([
-    listAccessibleBrands(tenant.account.id, tenant.user.id),
-    db.accountMembership.count({ where: { accountId: tenant.account.id } }),
-    db.brand.count({ where: { accountId: tenant.account.id } }),
-    db.campaign.findMany({
-      where: { brandId: tenant.brand.id },
-      orderBy: { updatedAt: "desc" },
-      select: { id: true, title: true },
-    }),
-  ]);
+  const [brands, seatCount, brandCount, campaigns, mediaLists] =
+    await Promise.all([
+      listAccessibleBrands(tenant.account.id, tenant.user.id),
+      db.accountMembership.count({ where: { accountId: tenant.account.id } }),
+      db.brand.count({ where: { accountId: tenant.account.id } }),
+      db.campaign.findMany({
+        where: { brandId: tenant.brand.id },
+        orderBy: { updatedAt: "desc" },
+        select: { id: true, title: true },
+      }),
+      db.mediaList.findMany({
+        where: { brandId: tenant.brand.id },
+        orderBy: { updatedAt: "desc" },
+        take: 8,
+        select: { id: true, name: true },
+      }),
+    ]);
 
   const brandRoom = canAddBrand(tenant.account.plan, seatCount, brandCount);
   const brandCreation = {
@@ -71,6 +78,7 @@ export default async function DashboardLayout({
           brands={brands.map((b) => ({ id: b.id, name: b.name, slug: b.slug }))}
           currentBrandId={tenant.brand?.id ?? null}
           campaigns={campaigns}
+          lists={mediaLists}
           brandCreation={brandCreation}
         />
 

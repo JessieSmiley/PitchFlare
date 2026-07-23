@@ -7,6 +7,7 @@ import type { DiscoveredPerson } from "@/lib/providers/types";
 import type { CompanySummary } from "@/lib/intelligence/types";
 import type { ContactLikelihood, LikelihoodBand } from "@/lib/contacts/likelihood";
 import { LikelihoodPill } from "./likelihood-pill";
+import { AddToListModal, type ListOption } from "./add-to-list-modal";
 import { DiscoverPanel } from "./discover-panel";
 
 export type ContactRow = {
@@ -39,14 +40,20 @@ export function ContactTable({
   contacts,
   onSelect,
   discovery,
+  lists = [],
+  campaignId = null,
 }: {
   contacts: ContactRow[];
   onSelect: (id: string) => void;
   discovery?: DiscoveryConfig | null;
+  lists?: ListOption[];
+  campaignId?: string | null;
 }) {
   const [filter, setFilter] = useState<ContactRow["kind"] | "ALL">("ALL");
   const [band, setBand] = useState<LikelihoodBand | "ALL">("ALL");
   const [q, setQ] = useState("");
+  const [checked, setChecked] = useState<Set<string>>(new Set());
+  const [showAddModal, setShowAddModal] = useState(false);
   const [searching, startSearch] = useTransition();
   const [searchError, setSearchError] = useState<string | null>(null);
   const [results, setResults] = useState<{
@@ -93,6 +100,30 @@ export function ContactTable({
       return true;
     });
   }, [contacts, filter, band, q]);
+
+  const checkedVisible = visible.filter((c) => checked.has(c.id));
+  const allVisibleChecked =
+    visible.length > 0 && checkedVisible.length === visible.length;
+
+  function toggleOne(id: string) {
+    setChecked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAllVisible() {
+    setChecked((prev) => {
+      const next = new Set(prev);
+      if (allVisibleChecked) visible.forEach((c) => next.delete(c.id));
+      else visible.forEach((c) => next.add(c.id));
+      return next;
+    });
+  }
+
+  const checkedList = [...checked];
 
   return (
     <>
@@ -146,6 +177,14 @@ export function ContactTable({
             placeholder="Search by name, outlet, beat…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => {
+              // Enter runs outward discovery (the local filter already updates
+              // as you type). Matches the "Find contacts at …" button.
+              if (e.key === "Enter" && canOfferDiscovery && !searching) {
+                e.preventDefault();
+                runDiscovery();
+              }
+            }}
             className="w-56 rounded-md border border-border bg-white px-3 py-1.5 text-xs"
           />
         </div>
@@ -186,10 +225,40 @@ export function ContactTable({
         </div>
       )}
 
+      {checked.size > 0 && (
+        <div className="flex flex-wrap items-center gap-3 border-b border-border bg-brand-navy/5 px-3 py-2 text-xs">
+          <span className="font-medium text-brand-navy">
+            {checked.size} selected
+          </span>
+          <button
+            type="button"
+            onClick={() => setShowAddModal(true)}
+            className="rounded-md bg-brand-pink px-3 py-1 font-medium text-white hover:opacity-90"
+          >
+            + Add to list
+          </button>
+          <button
+            type="button"
+            onClick={() => setChecked(new Set())}
+            className="text-muted-foreground hover:text-brand-navy"
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="text-left text-xs text-muted-foreground">
+              <th className="w-8 p-3">
+                <input
+                  type="checkbox"
+                  aria-label="Select all shown"
+                  checked={allVisibleChecked}
+                  onChange={toggleAllVisible}
+                />
+              </th>
               <th className="p-3 font-medium">Contact</th>
               <th className="p-3 font-medium">Outlet</th>
               <th className="p-3 font-medium">Beats</th>
@@ -200,7 +269,7 @@ export function ContactTable({
           <tbody>
             {visible.length === 0 && (
               <tr>
-                <td colSpan={5} className="p-8 text-center text-sm text-muted-foreground">
+                <td colSpan={6} className="p-8 text-center text-sm text-muted-foreground">
                   No contacts yet. Add one on the left, or import from a URL.
                 </td>
               </tr>
@@ -208,8 +277,19 @@ export function ContactTable({
             {visible.map((c) => (
               <tr
                 key={c.id}
-                className="border-t border-border hover:bg-muted/50"
+                className={`border-t border-border hover:bg-muted/50 ${
+                  checked.has(c.id) ? "bg-brand-navy/5" : ""
+                }`}
               >
+                <td className="p-3 align-top">
+                  <input
+                    type="checkbox"
+                    aria-label={`Select ${c.name}`}
+                    checked={checked.has(c.id)}
+                    onChange={() => toggleOne(c.id)}
+                    className="mt-1"
+                  />
+                </td>
                 <td className="p-3">
                   <div className="flex items-center gap-3">
                     {c.avatarUrl ? (
@@ -295,7 +375,21 @@ export function ContactTable({
         outletName={results.outletName}
         company={results.company}
         people={results.people}
+        lists={lists}
+        campaignId={campaignId}
         onClose={() => setResults(null)}
+      />
+    )}
+
+    {showAddModal && (
+      <AddToListModal
+        contactIds={checkedList}
+        lists={lists}
+        campaignId={campaignId}
+        onClose={() => {
+          setShowAddModal(false);
+          setChecked(new Set());
+        }}
       />
     )}
     </>

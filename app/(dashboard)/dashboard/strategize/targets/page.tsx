@@ -93,6 +93,13 @@ export default async function TargetsPage({
     connectedIntegrations.map((i) => i.partner),
   );
 
+  // The brand's existing lists, for the "Add to list" pickers.
+  const mediaLists = await db.mediaList.findMany({
+    where: { brandId },
+    orderBy: { updatedAt: "desc" },
+    select: { id: true, name: true },
+  });
+
   const discoveryProvider = PROVIDERS.find((p) => p.supportsDiscovery);
   const discovery: DiscoveryConfig | null = discoveryProvider
     ? {
@@ -270,6 +277,7 @@ export default async function TargetsPage({
           contactDetails={details}
           discovery={discovery}
           enrichPartners={enrichPartners}
+          lists={mediaLists}
         />
       </div>
     </div>

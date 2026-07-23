@@ -12,6 +12,7 @@ import {
   type ContactDetail,
   type EnrichPartner,
 } from "./contact-drawer";
+import type { ListOption } from "./add-to-list-modal";
 import { buildTargetListFromAngle } from "@/lib/contacts/actions";
 
 export function TargetsShell({
@@ -21,6 +22,7 @@ export function TargetsShell({
   contactDetails,
   discovery,
   enrichPartners,
+  lists,
 }: {
   campaignId: string | null;
   primaryAngleTitle: string | null;
@@ -28,6 +30,7 @@ export function TargetsShell({
   contactDetails: Record<string, ContactDetail>;
   discovery: DiscoveryConfig | null;
   enrichPartners: EnrichPartner[];
+  lists: ListOption[];
 }) {
   const router = useRouter();
   const [selected, setSelected] = useState<string | null>(null);
@@ -82,12 +85,15 @@ export function TargetsShell({
           contacts={contacts}
           onSelect={setSelected}
           discovery={discovery}
+          lists={lists}
+          campaignId={campaignId}
         />
       </div>
 
       <ContactDrawer
         contact={selected ? contactDetails[selected] ?? null : null}
         campaignId={campaignId}
+        lists={lists}
         onClose={() => setSelected(null)}
         enrichPartners={enrichPartners}
       />

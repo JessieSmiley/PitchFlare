@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireTenant } from "@/lib/auth/tenant";
+import { db } from "@/lib/db";
 import { switchBrandAction } from "@/lib/auth/actions";
 import {
   getAccountOverview,
@@ -49,6 +50,19 @@ export default async function DashboardHome() {
   const overview = await getAccountOverview(tenant.account.id, tenant.user.id);
   const currentBrandId = tenant.brand?.id ?? null;
 
+  const mediaLists = tenant.brand
+    ? await db.mediaList.findMany({
+        where: { brandId: tenant.brand.id },
+        orderBy: { updatedAt: "desc" },
+        take: 6,
+        select: {
+          id: true,
+          name: true,
+          _count: { select: { members: true } },
+        },
+      })
+    : [];
+
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -96,6 +110,55 @@ export default async function DashboardHome() {
           </ul>
         </section>
       )}
+
+      <section className="rounded-lg border border-border bg-card p-5">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-display text-lg text-brand-navy">Media Lists</h2>
+          <Link
+            href="/dashboard/lists"
+            className="text-xs font-medium text-brand-pink hover:underline"
+          >
+            View all →
+          </Link>
+        </div>
+        {mediaLists.length === 0 ? (
+          <p className="mt-3 text-sm text-muted-foreground">
+            No lists yet. Build one from{" "}
+            <Link
+              href="/dashboard/strategize/targets"
+              className="text-brand-pink hover:underline"
+            >
+              Target Compilation
+            </Link>{" "}
+            or{" "}
+            <Link
+              href="/dashboard/lists"
+              className="text-brand-pink hover:underline"
+            >
+              create one
+            </Link>
+            .
+          </p>
+        ) : (
+          <ul className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {mediaLists.map((l) => (
+              <li key={l.id}>
+                <Link
+                  href={`/dashboard/lists/${l.id}`}
+                  className="flex items-center justify-between gap-2 rounded-md border border-border bg-white px-3 py-2 transition hover:border-brand-pink"
+                >
+                  <span className="truncate text-sm font-medium text-brand-navy">
+                    {l.name}
+                  </span>
+                  <span className="shrink-0 rounded-full bg-accent px-2 py-0.5 text-[10px] font-medium text-accent-foreground">
+                    {l._count.members}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       {overview.brands.length === 0 ? (
         <EmptyBrands />

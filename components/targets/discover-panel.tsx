@@ -6,6 +6,7 @@ import { addDiscoveredContacts } from "@/lib/contacts/discover";
 import type { DiscoveredPerson } from "@/lib/providers/types";
 import type { CompanySummary } from "@/lib/intelligence/types";
 import { CompanyPanel } from "./company-panel";
+import { AddToListModal, type ListOption } from "./add-to-list-modal";
 
 function hasCompanyFacts(c: CompanySummary): boolean {
   return Boolean(
@@ -49,6 +50,8 @@ export function DiscoverPanel({
   outletName,
   company,
   people,
+  lists = [],
+  campaignId = null,
   onClose,
 }: {
   providerLabel: string;
@@ -56,12 +59,20 @@ export function DiscoverPanel({
   outletName?: string;
   company?: CompanySummary | null;
   people: DiscoveredPerson[];
+  lists?: ListOption[];
+  campaignId?: string | null;
   onClose: () => void;
 }) {
   const router = useRouter();
   const [saving, startSave] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
+  const [done, setDone] = useState<{
+    added: number;
+    skipped: number;
+    contactIds: string[];
+  } | null>(null);
   const [showCompany, setShowCompany] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
   // Pre-select every candidate that came with an email — those are the
   // immediately useful ones to add.
   const [selected, setSelected] = useState<Set<number>>(
@@ -87,9 +98,12 @@ export function DiscoverPanel({
         setMessage(res.error);
         return;
       }
-      const parts = [`Added ${res.added} contact${res.added === 1 ? "" : "s"}`];
-      if (res.skipped > 0) parts.push(`${res.skipped} already in directory`);
-      setMessage(`${parts.join(" · ")}.`);
+      setDone({
+        added: res.added,
+        skipped: res.skipped,
+        contactIds: res.contactIds,
+      });
+      // Refresh so the new rows appear in the directory table behind the panel.
       router.refresh();
     });
   }
@@ -180,6 +194,32 @@ export function DiscoverPanel({
           </section>
         )}
 
+        {done && (
+          <div className="border-b border-emerald-200 bg-emerald-50 px-6 py-3 text-sm text-emerald-800">
+            <p className="font-medium">
+              ✓ Added {done.added} contact{done.added === 1 ? "" : "s"} to your
+              directory
+              {done.skipped > 0
+                ? ` · ${done.skipped} already there`
+                : ""}
+              .
+            </p>
+            <p className="mt-0.5 text-xs text-emerald-700">
+              They&apos;re now in the Target Compilation table, scored by
+              Likelihood to Cover.
+            </p>
+            {done.contactIds.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowAddModal(true)}
+                className="mt-2 rounded-md border border-emerald-300 bg-white px-3 py-1 text-xs font-medium text-emerald-800 hover:bg-emerald-50"
+              >
+                + Add these {done.contactIds.length} to a list
+              </button>
+            )}
+          </div>
+        )}
+
         <div className="flex-1 overflow-y-auto">
           {people.length === 0 ? (
             <p className="p-8 text-center text-sm text-muted-foreground">
@@ -238,16 +278,26 @@ export function DiscoverPanel({
 
         <footer className="flex items-center justify-between gap-3 border-t border-border p-4">
           <span className="text-xs text-muted-foreground">
-            {message ?? `${selected.size} selected`}
+            {message ?? (done ? "Done" : `${selected.size} selected`)}
           </span>
-          <button
-            type="button"
-            onClick={addSelected}
-            disabled={saving || selected.size === 0}
-            className="rounded-lg bg-brand-pink px-4 py-2 text-sm text-white disabled:opacity-60"
-          >
-            {saving ? "Adding…" : "Add selected"}
-          </button>
+          {done ? (
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg bg-brand-pink px-4 py-2 text-sm text-white"
+            >
+              Done — view in list
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={addSelected}
+              disabled={saving || selected.size === 0}
+              className="rounded-lg bg-brand-pink px-4 py-2 text-sm text-white disabled:opacity-60"
+            >
+              {saving ? "Adding…" : "Add selected"}
+            </button>
+          )}
         </footer>
       </aside>
     </div>
@@ -256,6 +306,16 @@ export function DiscoverPanel({
       <CompanyPanel
         company={company}
         onClose={() => setShowCompany(false)}
+      />
+    )}
+
+    {showAddModal && done && (
+      <AddToListModal
+        contactIds={done.contactIds}
+        lists={lists}
+        campaignId={campaignId}
+        title={`Add ${done.contactIds.length} contact${done.contactIds.length === 1 ? "" : "s"} to a list`}
+        onClose={() => setShowAddModal(false)}
       />
     )}
     </>
