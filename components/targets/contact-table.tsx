@@ -146,6 +146,14 @@ export function ContactTable({
             placeholder="Search by name, outlet, beat…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => {
+              // Enter runs outward discovery (the local filter already updates
+              // as you type). Matches the "Find contacts at …" button.
+              if (e.key === "Enter" && canOfferDiscovery && !searching) {
+                e.preventDefault();
+                runDiscovery();
+              }
+            }}
             className="w-56 rounded-md border border-border bg-white px-3 py-1.5 text-xs"
           />
         </div>
