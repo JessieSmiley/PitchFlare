@@ -5,6 +5,8 @@ import { useMemo, useState, useTransition } from "react";
 import { discoverContacts } from "@/lib/contacts/discover";
 import type { DiscoveredPerson } from "@/lib/providers/types";
 import type { CompanySummary } from "@/lib/intelligence/types";
+import type { ContactLikelihood, LikelihoodBand } from "@/lib/contacts/likelihood";
+import { LikelihoodPill } from "./likelihood-pill";
 import { DiscoverPanel } from "./discover-panel";
 
 export type ContactRow = {
@@ -16,6 +18,7 @@ export type ContactRow = {
   outletName: string | null;
   beats: string[];
   matchScore: number | null;
+  likelihood: ContactLikelihood | null;
 };
 
 export type DiscoveryConfig = {
@@ -42,6 +45,7 @@ export function ContactTable({
   discovery?: DiscoveryConfig | null;
 }) {
   const [filter, setFilter] = useState<ContactRow["kind"] | "ALL">("ALL");
+  const [band, setBand] = useState<LikelihoodBand | "ALL">("ALL");
   const [q, setQ] = useState("");
   const [searching, startSearch] = useTransition();
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -80,6 +84,7 @@ export function ContactTable({
   const visible = useMemo(() => {
     return contacts.filter((c) => {
       if (filter !== "ALL" && c.kind !== filter) return false;
+      if (band !== "ALL" && c.likelihood?.band !== band) return false;
       if (q) {
         const needle = q.toLowerCase();
         const hay = `${c.name} ${c.outletName ?? ""} ${c.beats.join(" ")}`.toLowerCase();
@@ -87,7 +92,7 @@ export function ContactTable({
       }
       return true;
     });
-  }, [contacts, filter, q]);
+  }, [contacts, filter, band, q]);
 
   return (
     <>
@@ -111,13 +116,39 @@ export function ContactTable({
             ),
           )}
         </div>
-        <input
-          type="search"
-          placeholder="Search by name, outlet, beat…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          className="w-64 rounded-md border border-border bg-white px-3 py-1.5 text-xs"
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex gap-1 rounded-full bg-muted p-0.5 text-xs">
+            {(
+              [
+                ["ALL", "All"],
+                ["high", "High"],
+                ["medium", "Medium"],
+                ["low", "Low"],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setBand(value)}
+                className={`rounded-full px-3 py-1 ${
+                  band === value
+                    ? "bg-white font-medium text-brand-navy"
+                    : "text-muted-foreground"
+                }`}
+                title="Filter by Likelihood to Cover"
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <input
+            type="search"
+            placeholder="Search by name, outlet, beat…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            className="w-56 rounded-md border border-border bg-white px-3 py-1.5 text-xs"
+          />
+        </div>
       </div>
 
       {canOfferDiscovery && (
@@ -162,7 +193,7 @@ export function ContactTable({
               <th className="p-3 font-medium">Contact</th>
               <th className="p-3 font-medium">Outlet</th>
               <th className="p-3 font-medium">Beats</th>
-              <th className="p-3 font-medium">Match</th>
+              <th className="p-3 font-medium">Likelihood to Cover</th>
               <th className="p-3" />
             </tr>
           </thead>
@@ -223,11 +254,20 @@ export function ContactTable({
                     )}
                   </div>
                 </td>
-                <td className="p-3">
-                  {typeof c.matchScore === "number" ? (
-                    <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-accent-foreground">
-                      {c.matchScore}
-                    </span>
+                <td className="max-w-xs p-3">
+                  {c.likelihood ? (
+                    <div className="flex flex-col gap-1">
+                      <LikelihoodPill
+                        score={c.likelihood.score}
+                        band={c.likelihood.band}
+                        confidence={c.likelihood.confidence}
+                      />
+                      {c.likelihood.rationale && (
+                        <span className="line-clamp-2 text-[11px] leading-snug text-muted-foreground">
+                          {c.likelihood.rationale}
+                        </span>
+                      )}
+                    </div>
                   ) : (
                     <span className="text-xs text-muted-foreground">—</span>
                   )}

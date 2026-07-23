@@ -4,6 +4,12 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { enrichContactWithPartner } from "@/lib/integrations/actions";
+import {
+  refineContactRationale,
+  setContactSignal,
+} from "@/lib/contacts/likelihood-actions";
+import type { ContactLikelihood } from "@/lib/contacts/likelihood";
+import { LikelihoodPanel } from "./likelihood-panel";
 
 export type ContactDetail = {
   id: string;
@@ -17,6 +23,7 @@ export type ContactDetail = {
   beats: string[];
   fields: Array<{ key: string; value: string; source: string }>;
   recentWork: Array<{ title: string; url: string; source: string }>;
+  likelihood: ContactLikelihood | null;
 };
 
 /** A connected email-enrichment partner the drawer can call per-contact. */
@@ -39,10 +46,12 @@ const SOURCE_TONE: Record<string, string> = {
 
 export function ContactDrawer({
   contact,
+  campaignId,
   onClose,
   enrichPartners = [],
 }: {
   contact: ContactDetail | null;
+  campaignId?: string | null;
   onClose: () => void;
   enrichPartners?: EnrichPartner[];
 }) {
@@ -109,6 +118,17 @@ export function ContactDrawer({
             Close
           </button>
         </div>
+
+        {contact.likelihood && (
+          <LikelihoodPanel
+            contactId={contact.id}
+            campaignId={campaignId ?? null}
+            likelihood={contact.likelihood}
+            fields={contact.fields}
+            onRefine={refineContactRationale}
+            onSetSignal={setContactSignal}
+          />
+        )}
 
         {contact.bio && (
           <section className="mt-5">

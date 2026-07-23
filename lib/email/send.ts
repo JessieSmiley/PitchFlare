@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { requireTenant } from "@/lib/auth/tenant";
 import { instrumentEmailHtml, textToHtml } from "@/lib/email/tracking";
+import { invalidateLikelihood } from "@/lib/contacts/likelihood-service";
 
 type ActionResult<T = unknown> =
   | ({ ok: true } & T)
@@ -122,6 +123,9 @@ export async function sendApprovedPitches(
           },
         }),
       ]);
+      // A new pitch changes the "responded before" signal's denominator, so
+      // the cached likelihood is now stale — drop it to force a recompute.
+      await invalidateLikelihood(pitch.campaign.brandId, contact.id);
       sent += 1;
     } catch (err) {
       failed += 1;

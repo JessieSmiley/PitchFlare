@@ -4,11 +4,15 @@ import { logAIUsage } from "@/lib/ai/log";
 import {
   buildRationale,
   computeLikelihood,
+  EXCLUSIVES_FIELD_KEY,
+  PR_DRIVEN_FIELD_KEY,
   type FlagSignal,
   type LikelihoodInputs,
   type LikelihoodResult,
   type RecentWorkItem,
 } from "./likelihood";
+
+export { EXCLUSIVES_FIELD_KEY, PR_DRIVEN_FIELD_KEY };
 
 /**
  * DB + AI wrappers around the pure `computeLikelihood` engine.
@@ -22,8 +26,37 @@ import {
  *     don't regenerate the sentence on every drawer open.
  */
 
-export const EXCLUSIVES_FIELD_KEY = "prefersExclusives";
-export const PR_DRIVEN_FIELD_KEY = "prDrivenPropensity";
+/**
+ * Assemble the topic terms a campaign contributes to the "covered topic in the
+ * last 30 days" signal — the campaign title/objective plus its primary and
+ * selected angles. Mirrors how the Targets page builds match terms, kept here
+ * so the page and the drawer's AI-refine action stay in sync.
+ */
+export async function resolveCampaignTopicTerms(
+  brandId: string,
+  campaignId: string,
+): Promise<string[]> {
+  const campaign = await db.campaign.findFirst({
+    where: { id: campaignId, brandId },
+    include: {
+      primaryAngle: { select: { title: true, hook: true, audienceFit: true } },
+      angles: {
+        where: { selected: true },
+        select: { title: true, hook: true, audienceFit: true },
+      },
+    },
+  });
+  if (!campaign) return [];
+  return [
+    campaign.title,
+    campaign.objective,
+    campaign.primaryAngle?.title,
+    campaign.primaryAngle?.hook,
+    campaign.primaryAngle?.audienceFit,
+    ...campaign.angles.flatMap((a) => [a.title, a.hook, a.audienceFit]),
+    ...(campaign.toneTags ?? []),
+  ].filter((s): s is string => Boolean(s && s.length));
+}
 
 // A cached likelihood older than this is recomputed on the next drawer open.
 const CACHE_TTL_MS = 12 * 60 * 60 * 1000;

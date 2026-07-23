@@ -6,6 +6,8 @@ import { TargetsShell } from "@/components/targets/targets-shell";
 import { CampaignSwitcher } from "@/components/strategize/campaign-switcher";
 import { PROVIDERS, providerFor } from "@/lib/providers";
 import { scoreContactsForCampaign } from "@/lib/contacts/match";
+import { scoreContactsLikelihood } from "@/lib/contacts/likelihood-service";
+import { likelihoodBand } from "@/lib/contacts/likelihood";
 import type { DiscoveryConfig } from "@/components/targets/contact-table";
 import type { EnrichPartner } from "@/components/targets/contact-drawer";
 import type { ContactRow } from "@/components/targets/contact-table";
@@ -60,9 +62,15 @@ export default async function TargetsPage({
           orderBy: { createdAt: "asc" },
         },
         recentWork: {
-          select: { title: true, url: true, source: true },
+          select: {
+            title: true,
+            url: true,
+            source: true,
+            excerpt: true,
+            publishedAt: true,
+          },
           orderBy: { publishedAt: "desc" },
-          take: 10,
+          take: 30,
         },
       },
     }),
@@ -102,26 +110,29 @@ export default async function TargetsPage({
     .filter((p) => connectedPartners.has(p))
     .map((p) => ({ partner: p, label: providerFor(p)?.label ?? p }));
 
-  // Score contacts against every angle the user selected on Ideation (they
-  // may target different audiences), so the table surfaces a "Match" column
-  // out of the gate. Falls back to the lead angle if nothing is flagged.
+  // Topic terms drive both the legacy topical match and the behavioral
+  // "covered your topic in 30 days" signal. Assemble them from every angle the
+  // user selected on Ideation (they may target different audiences).
   const selectedAngles = campaign?.angles ?? [];
+  const angleTerms = campaign
+    ? [
+        campaign.title,
+        campaign.objective,
+        ...(campaign.primaryAngle
+          ? [
+              campaign.primaryAngle.title,
+              campaign.primaryAngle.hook,
+              campaign.primaryAngle.audienceFit,
+            ]
+          : []),
+        ...selectedAngles.flatMap((a) => [a.title, a.hook, a.audienceFit]),
+        ...(campaign.toneTags ?? []),
+      ].filter((s): s is string => Boolean(s && s.length))
+    : [];
+
+  // Legacy topical match (kept as a secondary, explainable signal).
   const scoreMap = new Map<string, number>();
   if (campaign && (selectedAngles.length > 0 || campaign.primaryAngle)) {
-    const angleTerms = [
-      campaign.title,
-      campaign.objective,
-      ...(campaign.primaryAngle
-        ? [
-            campaign.primaryAngle.title,
-            campaign.primaryAngle.hook,
-            campaign.primaryAngle.audienceFit,
-          ]
-        : []),
-      ...selectedAngles.flatMap((a) => [a.title, a.hook, a.audienceFit]),
-      ...(campaign.toneTags ?? []),
-    ].filter((s): s is string => Boolean(s && s.length));
-
     const scored = await scoreContactsForCampaign(
       brandId,
       {
@@ -132,6 +143,18 @@ export default async function TargetsPage({
     );
     for (const s of scored) scoreMap.set(s.contactId, s.score);
   }
+
+  // Behavioral Likelihood-to-Cover — the headline score. Bulk, no-AI, brand
+  // scoped; the drawer can refine a single contact's rationale with Claude.
+  const likelihoodMap = await scoreContactsLikelihood(
+    brandId,
+    allContacts.map((c) => ({
+      contactId: c.id,
+      recentWork: c.recentWork,
+      fields: c.fields,
+    })),
+    { topicTerms: angleTerms },
+  );
 
   const rows: ContactRow[] = allContacts.map((c) => {
     const title = c.fields.find((f) => f.key === "title")?.value ?? null;
@@ -146,6 +169,16 @@ export default async function TargetsPage({
       outletName: outletFromJoin ?? outletFromField ?? null,
       beats: c.beats.map((b) => b.beat.name),
       matchScore: scoreMap.get(c.id) ?? null,
+      likelihood: (() => {
+        const l = likelihoodMap.get(c.id);
+        if (!l) return null;
+        return {
+          score: l.score,
+          confidence: l.confidence,
+          band: likelihoodBand(l.score),
+          rationale: l.rationale,
+        };
+      })(),
     };
   });
 
@@ -168,19 +201,31 @@ export default async function TargetsPage({
           beats: c.beats.map((b) => b.beat.name),
           fields: c.fields,
           recentWork: c.recentWork,
+          likelihood: (() => {
+            const l = likelihoodMap.get(c.id);
+            if (!l) return null;
+            return {
+              score: l.score,
+              confidence: l.confidence,
+              band: likelihoodBand(l.score),
+              rationale: l.rationale,
+              breakdown: l.breakdown,
+            };
+          })(),
         },
       ];
     }),
   );
 
-  // Sort the table so highest-matching contacts surface first when a
-  // primary angle is set; otherwise keep by createdAt desc.
-  if (scoreMap.size > 0) {
-    rows.sort(
-      (a, b) =>
-        (b.matchScore ?? -1) - (a.matchScore ?? -1) || a.name.localeCompare(b.name),
-    );
-  }
+  // Sort by behavioral likelihood first (the headline signal), then topical
+  // match, then name. When no contact has any behavioral data (all zero) this
+  // degrades gracefully to match/name ordering.
+  rows.sort(
+    (a, b) =>
+      (b.likelihood?.score ?? -1) - (a.likelihood?.score ?? -1) ||
+      (b.matchScore ?? -1) - (a.matchScore ?? -1) ||
+      a.name.localeCompare(b.name),
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -190,8 +235,12 @@ export default async function TargetsPage({
             Target Compilation
           </h1>
           <p className="text-sm text-muted-foreground">
-            The shared directory + your brand&apos;s additions. Scores are
-            brand-scoped and update with your primary angle.
+            The shared directory + your brand&apos;s additions, ranked by{" "}
+            <span className="font-medium text-brand-navy">
+              Likelihood to Cover
+            </span>{" "}
+            — a behavioral score from prior replies, recent coverage, and
+            competitor activity. Brand-scoped; open a contact to see why.
           </p>
         </div>
         <CampaignSwitcher

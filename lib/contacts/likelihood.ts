@@ -19,6 +19,14 @@
  * so the math here stays trivially unit-testable and deterministic.
  */
 
+/**
+ * ContactField keys backing the two manual/AI-inferred flag signals. Defined
+ * here (the pure, client-safe module) so both the server service and the
+ * client drawer can reference them without either importing the other.
+ */
+export const EXCLUSIVES_FIELD_KEY = "prefersExclusives";
+export const PR_DRIVEN_FIELD_KEY = "prDrivenPropensity";
+
 export type SignalKey =
   | "respondedBefore"
   | "coveredTopic30d"
@@ -437,9 +445,23 @@ function lowerFirst(s: string): string {
   return s.charAt(0).toLowerCase() + s.slice(1);
 }
 
+export type LikelihoodBand = "high" | "medium" | "low";
+
 /** Coarse band for pill coloring in the UI. */
-export function likelihoodBand(score: number): "high" | "medium" | "low" {
+export function likelihoodBand(score: number): LikelihoodBand {
   if (score >= 70) return "high";
   if (score >= 40) return "medium";
   return "low";
 }
+
+/**
+ * The likelihood payload the UI carries per contact. `breakdown` is only
+ * present on the detail (drawer) view — the table row omits it to stay light.
+ */
+export type ContactLikelihood = {
+  score: number;
+  confidence: number;
+  band: LikelihoodBand;
+  rationale: string;
+  breakdown?: SignalContribution[];
+};
