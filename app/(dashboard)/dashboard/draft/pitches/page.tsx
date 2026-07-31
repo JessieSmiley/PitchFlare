@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { CampaignSwitcher } from "@/components/strategize/campaign-switcher";
 import {
   PitchComposer,
+  BROAD_PITCH_KEY,
   type PitchRow,
 } from "@/components/draft/pitch-composer";
 
@@ -116,9 +117,10 @@ export default async function PitchesPage({
               recentWork: [] as { title: string }[],
             }));
 
-    rows = contacts.map((c) => {
+    const contactRows: PitchRow[] = contacts.map((c) => {
       const p = pitchesByContact.get(c.id);
       return {
+        key: c.id,
         pitchId: p?.id ?? null,
         status: (p?.status ?? "NONE") as PitchRow["status"],
         subject: p?.subject ?? "",
@@ -133,6 +135,25 @@ export default async function PitchesPage({
         },
       };
     });
+
+    // The broader pitch (no target) is always available. Reuse an editable
+    // targetless draft if one exists so its status/text round-trip.
+    const broadPitch =
+      campaign.pitches.find(
+        (p) =>
+          !p.contactId && (p.status === "DRAFT" || p.status === "APPROVED"),
+      ) ?? campaign.pitches.find((p) => !p.contactId) ?? null;
+
+    const broadRow: PitchRow = {
+      key: BROAD_PITCH_KEY,
+      pitchId: broadPitch?.id ?? null,
+      status: (broadPitch?.status ?? "NONE") as PitchRow["status"],
+      subject: broadPitch?.subject ?? "",
+      body: broadPitch?.body ?? "",
+      contact: null,
+    };
+
+    rows = [broadRow, ...contactRows];
   }
 
   // A standalone list with no campaign to draft under can't produce pitches.
@@ -144,8 +165,9 @@ export default async function PitchesPage({
         <div>
           <h1 className="font-display text-4xl text-brand-navy">Pitches</h1>
           <p className="text-sm text-muted-foreground">
-            Personalised drafts per contact. The AI sees brand context,
-            campaign setup, primary angle, and the contact&apos;s recent work.
+            Personalised drafts per contact, or a broader pitch with no target
+            selected. The AI sees brand context, campaign setup, primary angle,
+            and — when a contact is chosen — their recent work.
           </p>
           {list && (
             <p className="mt-1 inline-flex items-center gap-2 rounded-full bg-accent px-3 py-1 text-xs font-medium text-accent-foreground">
@@ -168,18 +190,11 @@ export default async function PitchesPage({
           this list.
         </div>
       ) : campaign ? (
-        rows.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border bg-card p-6 text-sm text-muted-foreground">
-            No targets on this campaign. Build a media list on the Targets
-            screen, then come back here.
-          </div>
-        ) : (
-          <PitchComposer
-            campaignId={campaign.id}
-            rows={rows}
-            opusByDefault={false}
-          />
-        )
+        <PitchComposer
+          campaignId={campaign.id}
+          rows={rows}
+          opusByDefault={false}
+        />
       ) : (
         <div className="rounded-lg border border-dashed border-border bg-card p-6 text-sm text-muted-foreground">
           Pick or create a campaign on the Ideation screen first.

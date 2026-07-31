@@ -32,10 +32,12 @@ const VariantsOutput = z.object({
 });
 
 /**
- * Internal helper — fetches the campaign + contact context for a pitch
- * call. Returns null if anything is missing or out of scope.
+ * Internal helper — fetches the campaign context for a pitch call, plus the
+ * contact when one is targeted. Pass `contactId = null` to draft a broader
+ * pitch that isn't tailored to a specific person. Returns null if the
+ * campaign (or a named contact) is missing or out of scope.
  */
-async function loadPitchContext(campaignId: string, contactId: string) {
+async function loadPitchContext(campaignId: string, contactId: string | null) {
   const tenant = await requireTenant();
   const campaign = await db.campaign.findFirst({
     where: {
@@ -45,6 +47,10 @@ async function loadPitchContext(campaignId: string, contactId: string) {
     include: { primaryAngle: true },
   });
   if (!campaign) return null;
+
+  if (!contactId) {
+    return { tenant, campaign, contact: null };
+  }
 
   const contact = await db.contact.findUnique({
     where: { id: contactId },
@@ -126,9 +132,38 @@ const PITCH_SYSTEM = [
   "corporate throat-clearing.",
 ].join(" ");
 
+// Used when no contact is targeted: a reusable, broadly-applicable draft the
+// user can later tailor per recipient. Same brand voice and angle, but no
+// name/outlet/recent-work personalisation.
+const PITCH_SYSTEM_BROAD = [
+  "You are drafting a broad, reusable pitch email on behalf of the brand —",
+  "not tailored to any specific journalist, podcaster, or influencer. It",
+  "should read well to any relevant recipient and serve as a starting point",
+  "the user can personalise later. Strict rules: (1) under 150 words,",
+  "(2) lead with the story's news value and the primary angle,",
+  "(3) match the brand voice exactly, (4) avoid banned words, (5) end with",
+  "one clear, low-friction ask (quote, call, embargoed preview). No",
+  "corporate throat-clearing. Do NOT invent a recipient name, outlet, or",
+  "references to specific past work — leave any greeting generic.",
+].join(" ");
+
+/**
+ * Assemble the user-message content for a pitch call. Includes the contact
+ * block only when a contact is targeted.
+ */
+function pitchUserMessage(
+  campaign: Parameters<typeof campaignBlock>[0],
+  contact: Parameters<typeof contactBlock>[0] | null,
+) {
+  const parts = [campaignBlock(campaign)];
+  if (contact) parts.push("", contactBlock(contact));
+  return parts.join("\n");
+}
+
 const GenerateDraftInput = z.object({
   campaignId: z.string().min(1),
-  contactId: z.string().min(1),
+  // Omit or pass null to draft a broader pitch with no specific target.
+  contactId: z.string().min(1).nullish(),
   useOpus: z.boolean().default(false),
 });
 
@@ -145,7 +180,10 @@ export async function generatePitchDraft(
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
 
-  const ctx = await loadPitchContext(parsed.data.campaignId, parsed.data.contactId);
+  const ctx = await loadPitchContext(
+    parsed.data.campaignId,
+    parsed.data.contactId ?? null,
+  );
   if (!ctx) return { ok: false, error: "Campaign or contact not found." };
 
   const brandCtx = await getBrandContextForAI(ctx.campaign.brandId);
@@ -158,14 +196,15 @@ export async function generatePitchDraft(
       max_tokens: 800,
       system: [
         brandContextAsPromptBlock(brandCtx),
-        { type: "text" as const, text: PITCH_SYSTEM },
+        {
+          type: "text" as const,
+          text: ctx.contact ? PITCH_SYSTEM : PITCH_SYSTEM_BROAD,
+        },
       ],
       messages: [
         {
           role: "user",
-          content: [campaignBlock(ctx.campaign), "", contactBlock(ctx.contact)].join(
-            "\n",
-          ),
+          content: pitchUserMessage(ctx.campaign, ctx.contact),
         },
       ],
       output_config: {
@@ -187,7 +226,7 @@ export async function generatePitchDraft(
     await logAIUsage({
       accountId: ctx.tenant.account.id,
       brandId: ctx.campaign.brandId,
-      feature: "draft.pitch_single",
+      feature: ctx.contact ? "draft.pitch_single" : "draft.pitch_broad",
       model,
       usage: response.usage,
     });
@@ -198,11 +237,13 @@ export async function generatePitchDraft(
     }
 
     // Upsert by (campaignId, contactId, status = DRAFT). If a DRAFT already
-    // exists for this pair we overwrite it; SENT/REPLIED rows stay put.
+    // exists for this pair we overwrite it; SENT/REPLIED rows stay put. The
+    // broader pitch keys on contactId = null, so a campaign has at most one.
+    const contactId = ctx.contact?.id ?? null;
     const existing = await db.pitch.findFirst({
       where: {
         campaignId: ctx.campaign.id,
-        contactId: ctx.contact.id,
+        contactId,
         status: "DRAFT",
       },
       select: { id: true },
@@ -217,7 +258,7 @@ export async function generatePitchDraft(
       : await db.pitch.create({
           data: {
             campaignId: ctx.campaign.id,
-            contactId: ctx.contact.id,
+            contactId,
             angleId: ctx.campaign.primaryAngleId ?? null,
             subject: out.data.subject,
             body: out.data.body,
@@ -236,7 +277,8 @@ export async function generatePitchDraft(
 
 const GenerateVariantsInput = z.object({
   campaignId: z.string().min(1),
-  contactId: z.string().min(1),
+  // Omit or pass null for variants of a broader, targetless pitch.
+  contactId: z.string().min(1).nullish(),
   useOpus: z.boolean().default(false),
 });
 
@@ -256,7 +298,10 @@ export async function generatePitchVariants(
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
-  const ctx = await loadPitchContext(parsed.data.campaignId, parsed.data.contactId);
+  const ctx = await loadPitchContext(
+    parsed.data.campaignId,
+    parsed.data.contactId ?? null,
+  );
   if (!ctx) return { ok: false, error: "Campaign or contact not found." };
 
   const brandCtx = await getBrandContextForAI(ctx.campaign.brandId);
@@ -271,7 +316,7 @@ export async function generatePitchVariants(
         {
           type: "text" as const,
           text:
-            PITCH_SYSTEM +
+            (ctx.contact ? PITCH_SYSTEM : PITCH_SYSTEM_BROAD) +
             " Produce exactly 3 variants with meaningfully distinct tone (" +
             "e.g. direct/data-driven, warm/narrative, urgent/exclusive). " +
             "Label each with a 1-2 word tone descriptor.",
@@ -280,9 +325,7 @@ export async function generatePitchVariants(
       messages: [
         {
           role: "user",
-          content: [campaignBlock(ctx.campaign), "", contactBlock(ctx.contact)].join(
-            "\n",
-          ),
+          content: pitchUserMessage(ctx.campaign, ctx.contact),
         },
       ],
       output_config: {
@@ -315,7 +358,7 @@ export async function generatePitchVariants(
     await logAIUsage({
       accountId: ctx.tenant.account.id,
       brandId: ctx.campaign.brandId,
-      feature: "draft.pitch_variants",
+      feature: ctx.contact ? "draft.pitch_variants" : "draft.pitch_broad_variants",
       model,
       usage: response.usage,
     });

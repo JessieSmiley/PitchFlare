@@ -13,11 +13,18 @@ import {
   updatePitchDraft,
 } from "@/lib/pitches/actions";
 
+// Stable selection key for the broader, targetless pitch (contact === null).
+export const BROAD_PITCH_KEY = "__broad__";
+
 export type PitchRow = {
+  // Stable key used for selection. Contact rows use the contact id; the
+  // broader pitch uses BROAD_PITCH_KEY.
+  key: string;
   pitchId: string | null;
   status: "NONE" | "DRAFT" | "APPROVED" | "SENT" | "OPENED" | "REPLIED" | "PLACED" | "NO_RESPONSE" | "SCHEDULED";
   subject: string;
   body: string;
+  // null => a broader pitch not tailored to a specific person.
   contact: {
     id: string;
     name: string;
@@ -25,7 +32,7 @@ export type PitchRow = {
     outletName: string | null;
     kind: string;
     recentWorkTitles: string[];
-  };
+  } | null;
 };
 
 const STATUS_TONE: Record<string, string> = {
@@ -48,20 +55,23 @@ export function PitchComposer({
   opusByDefault: boolean;
 }) {
   const router = useRouter();
-  const [selectedContactId, setSelectedContactId] = useState<string | null>(
-    rows[0]?.contact.id ?? null,
+  const [selectedKey, setSelectedKey] = useState<string | null>(
+    rows[0]?.key ?? null,
   );
   const [useOpus, setUseOpus] = useState(opusByDefault);
   const [batchPending, startBatch] = useTransition();
   const [batchMessage, setBatchMessage] = useState<string | null>(null);
 
-  const selected = rows.find((r) => r.contact.id === selectedContactId) ?? null;
-  const draftsReady = rows.filter((r) => r.status !== "NONE").length;
+  const selected = rows.find((r) => r.key === selectedKey) ?? null;
+  // The broader (targetless) pitch isn't a "target" for progress counting.
+  const contactRows = rows.filter((r) => r.contact);
+  const draftsReady = contactRows.filter((r) => r.status !== "NONE").length;
 
   function runBatch() {
+    // Batch only fans out over real contacts; the broader pitch is one-off.
     const missing = rows
-      .filter((r) => r.status === "NONE")
-      .map((r) => r.contact.id);
+      .filter((r) => r.contact && r.status === "NONE")
+      .map((r) => r.contact!.id);
     if (missing.length === 0) return;
     setBatchMessage(null);
     startBatch(async () => {
@@ -86,9 +96,11 @@ export function PitchComposer({
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card p-4">
         <div className="text-sm">
           <span className="font-medium text-brand-navy">
-            {draftsReady} / {rows.length}
+            {draftsReady} / {contactRows.length}
           </span>{" "}
-          <span className="text-muted-foreground">drafts ready</span>
+          <span className="text-muted-foreground">
+            {contactRows.length === 1 ? "draft" : "drafts"} ready
+          </span>
         </div>
         <div className="flex items-center gap-3">
           <label className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -102,7 +114,11 @@ export function PitchComposer({
           <button
             type="button"
             onClick={runBatch}
-            disabled={batchPending || rows.every((r) => r.status !== "NONE")}
+            disabled={
+              batchPending ||
+              contactRows.length === 0 ||
+              contactRows.every((r) => r.status !== "NONE")
+            }
             className="rounded-lg bg-brand-pink px-4 py-2 text-sm text-white disabled:opacity-60"
           >
             {batchPending ? "Generating…" : "✦ Generate all drafts"}
@@ -123,17 +139,17 @@ export function PitchComposer({
               </li>
             )}
             {rows.map((r) => (
-              <li key={r.contact.id}>
+              <li key={r.key}>
                 <button
                   type="button"
-                  onClick={() => setSelectedContactId(r.contact.id)}
+                  onClick={() => setSelectedKey(r.key)}
                   className={`w-full px-3 py-2 text-left text-sm hover:bg-muted ${
-                    r.contact.id === selectedContactId ? "bg-accent" : ""
+                    r.key === selectedKey ? "bg-accent" : ""
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="truncate font-medium text-brand-navy">
-                      {r.contact.name}
+                      {r.contact ? r.contact.name : "Broader pitch"}
                     </span>
                     <span
                       className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] ${STATUS_TONE[r.status]}`}
@@ -142,7 +158,9 @@ export function PitchComposer({
                     </span>
                   </div>
                   <div className="truncate text-xs text-muted-foreground">
-                    {r.contact.outletName ?? r.contact.kind}
+                    {r.contact
+                      ? (r.contact.outletName ?? r.contact.kind)
+                      : "No target — general draft"}
                   </div>
                 </button>
               </li>
@@ -152,7 +170,7 @@ export function PitchComposer({
 
         {selected ? (
           <PitchEditor
-            key={selected.contact.id}
+            key={selected.key}
             campaignId={campaignId}
             row={selected}
             useOpus={useOpus}
@@ -196,12 +214,14 @@ function PitchEditor({
 
   const locked = status !== "NONE" && status !== "DRAFT" && status !== "APPROVED";
 
+  const contactId = row.contact?.id ?? null;
+
   function generate() {
     setError(null);
     startGenerate(async () => {
       const res = await generatePitchDraft({
         campaignId,
-        contactId: row.contact.id,
+        contactId,
         useOpus,
       });
       if (!res.ok) {
@@ -245,7 +265,7 @@ function PitchEditor({
     startVariants(async () => {
       const res = await generatePitchVariants({
         campaignId,
-        contactId: row.contact.id,
+        contactId,
         useOpus,
       });
       if (!res.ok) {
@@ -280,31 +300,47 @@ function PitchEditor({
   return (
     <div className="grid gap-4 rounded-lg border border-border bg-card p-5 lg:grid-cols-[1fr_1.5fr]">
       <aside className="text-sm">
-        <h3 className="font-display text-lg text-brand-navy">
-          {row.contact.name}
-        </h3>
-        <p className="text-xs text-muted-foreground">
-          {row.contact.outletName ?? row.contact.kind}
-        </p>
-        {row.contact.email ? (
-          <p className="mt-1 font-mono text-xs text-brand-navy">
-            {row.contact.email}
-          </p>
-        ) : (
-          <p className="mt-1 text-xs text-destructive">
-            No email on file — add one before Execute.
-          </p>
-        )}
-        {row.contact.recentWorkTitles.length > 0 && (
+        {row.contact ? (
           <>
-            <h4 className="mt-4 text-xs font-semibold uppercase text-muted-foreground">
-              Recent work
-            </h4>
-            <ul className="mt-1 space-y-1 text-xs">
-              {row.contact.recentWorkTitles.slice(0, 5).map((t) => (
-                <li key={t} className="text-brand-navy">• {t}</li>
-              ))}
-            </ul>
+            <h3 className="font-display text-lg text-brand-navy">
+              {row.contact.name}
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              {row.contact.outletName ?? row.contact.kind}
+            </p>
+            {row.contact.email ? (
+              <p className="mt-1 font-mono text-xs text-brand-navy">
+                {row.contact.email}
+              </p>
+            ) : (
+              <p className="mt-1 text-xs text-destructive">
+                No email on file — add one before Execute.
+              </p>
+            )}
+            {row.contact.recentWorkTitles.length > 0 && (
+              <>
+                <h4 className="mt-4 text-xs font-semibold uppercase text-muted-foreground">
+                  Recent work
+                </h4>
+                <ul className="mt-1 space-y-1 text-xs">
+                  {row.contact.recentWorkTitles.slice(0, 5).map((t) => (
+                    <li key={t} className="text-brand-navy">• {t}</li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </>
+        ) : (
+          <>
+            <h3 className="font-display text-lg text-brand-navy">
+              Broader pitch
+            </h3>
+            <p className="text-xs text-muted-foreground">No target selected</p>
+            <p className="mt-3 text-xs text-muted-foreground">
+              A reusable draft built from your brand voice and the campaign&apos;s
+              primary angle — not tailored to anyone specific. Use it as a
+              starting point, then personalise per contact before you send.
+            </p>
           </>
         )}
       </aside>
