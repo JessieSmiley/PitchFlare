@@ -49,7 +49,16 @@ export async function connectIntegration(
   const provider = providerFor(partner);
   if (!provider) return { ok: false, error: "Unknown provider." };
 
-  const auth = await provider.authenticate(parsed.data.apiKey);
+  let auth: Awaited<ReturnType<typeof provider.authenticate>>;
+  try {
+    auth = await provider.authenticate(parsed.data.apiKey);
+  } catch (err) {
+    console.error("[integrations] authenticate failed", partner, err);
+    return {
+      ok: false,
+      error: `Couldn't reach ${provider.label} to check the key. Try again in a moment.`,
+    };
+  }
   if (!auth.ok) {
     return {
       ok: false,
@@ -57,30 +66,41 @@ export async function connectIntegration(
     };
   }
 
-  const encrypted = encryptSecret(parsed.data.apiKey);
   const label = parsed.data.label ?? "default";
 
-  await db.integration.upsert({
-    where: {
-      accountId_partner_label: {
+  try {
+    const encrypted = encryptSecret(parsed.data.apiKey);
+    await db.integration.upsert({
+      where: {
+        accountId_partner_label: {
+          accountId: tenant.account.id,
+          partner,
+          label,
+        },
+      },
+      create: {
         accountId: tenant.account.id,
         partner,
         label,
+        encryptedCredentials: encrypted,
+        status: "CONNECTED",
       },
-    },
-    create: {
-      accountId: tenant.account.id,
-      partner,
-      label,
-      encryptedCredentials: encrypted,
-      status: "CONNECTED",
-    },
-    update: {
-      encryptedCredentials: encrypted,
-      status: "CONNECTED",
-      lastError: null,
-    },
-  });
+      update: {
+        encryptedCredentials: encrypted,
+        status: "CONNECTED",
+        lastError: null,
+      },
+    });
+  } catch (err) {
+    console.error("[integrations] failed to save key", partner, err);
+    const msg = err instanceof Error ? err.message : "";
+    return {
+      ok: false,
+      error: /PF_ENCRYPTION_KEY/.test(msg)
+        ? "Server encryption key (PF_ENCRYPTION_KEY) is missing or invalid — ask the admin to set it."
+        : "The key was valid but couldn't be saved. Please try again.",
+    };
+  }
 
   revalidatePath("/dashboard/settings/integrations");
   return { ok: true };
@@ -126,7 +146,10 @@ export async function enrichContactWithPartner(
 ): Promise<ActionResult<{ written: number; partnerFields: number }>> {
   const parsed = EnrichInput.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Invalid input",
+    };
   }
   const tenant = await requireTenant();
   const partner = parsed.data.partner as IntegrationPartner;
@@ -209,9 +232,7 @@ export async function enrichContactWithPartner(
   // @@unique is on (contactId, key, source), so multiple sources
   // coexist).
   const userAddedKeys = new Set(
-    contact.fields
-      .filter((f) => f.source === "USER_ADDED")
-      .map((f) => f.key),
+    contact.fields.filter((f) => f.source === "USER_ADDED").map((f) => f.key),
   );
 
   let written = 0;
